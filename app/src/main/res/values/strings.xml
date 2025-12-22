@@ -58,7 +58,23 @@
     <string name="section_language">Language</string>
     <string name="section_currency">Currency</string>
     <string name="section_notifications">Notifications</string>
+    <string name="section_billing_reminder">Billing Cycle Reminder</string>
     <string name="currency">Currency</string>
     <string name="notifications">Notifications</string>
     <string name="notifications_description">Enable notifications for subscription renewals</string>
+    <string name="select_period_first">First, select a billing period</string>
+    <string name="billing_reminder_7_days">7 days before</string>
+    <string name="billing_reminder_3_days">3 days before</string>
+    <string name="billing_reminder_1_day">1 day before</string>
+    <string name="free_label">FREE</string>
+    <string name="premium_label">PREMIUM</string>
+    <string name="premium_feature_title">Premium Feature</string>
+    <string name="premium_feature_description">1 and 3 day reminders are for Premium users.</string>
+    <string name="upgrade_to_premium">Upgrade to Premium</string>
+    <string name="premium_title">Premium</string>
+    <string name="premium_description">Unlock reminders, advanced settings and more</string>
+    <string name="get_premium">Get Premium</string>
+    <string name="back">Back</string>
+    <string name="popular">Popular</string>
+    <string name="premium_banner_subtitle">Unlock all features</string>
 </resources>

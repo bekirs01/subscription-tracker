@@ -58,7 +58,23 @@
     <string name="section_language">Dil</string>
     <string name="section_currency">Para Birimi</string>
     <string name="section_notifications">Bildirimler</string>
+    <string name="section_billing_reminder">Faturalama Döngüsü Hatırlatıcısı</string>
     <string name="currency">Para Birimi</string>
     <string name="notifications">Bildirimler</string>
     <string name="notifications_description">Abonelik yenilemeleri için bildirimleri etkinleştir</string>
+    <string name="select_period_first">Önce bir faturalama periyodu seçin</string>
+    <string name="billing_reminder_7_days">7 gün önce</string>
+    <string name="billing_reminder_3_days">3 gün önce</string>
+    <string name="billing_reminder_1_day">1 gün önce</string>
+    <string name="free_label">ÜCRETSİZ</string>
+    <string name="premium_label">PREMIUM</string>
+    <string name="premium_feature_title">Premium Özellik</string>
+    <string name="premium_feature_description">1 ve 3 gün hatırlatmaları Premium kullanıcılar içindir.</string>
+    <string name="upgrade_to_premium">Premium\'a Yükselt</string>
+    <string name="premium_title">Premium</string>
+    <string name="premium_description">Hatırlatmalar, gelişmiş ayarlar ve daha fazlasının kilidini açın</string>
+    <string name="get_premium">Premium\'ı Al</string>
+    <string name="back">Geri</string>
+    <string name="popular">Popüler</string>
+    <string name="premium_banner_subtitle">Tüm özelliklerin kilidini açın</string>
 </resources>

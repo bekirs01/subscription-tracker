@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.size
 import com.example.subscriptiontracker.R
 import android.Manifest
 import android.os.Build
@@ -21,16 +22,23 @@ import com.example.subscriptiontracker.utils.AppTheme
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
 import com.example.subscriptiontracker.utils.NotificationManager
+import com.example.subscriptiontracker.utils.ReminderManager
 import com.example.subscriptiontracker.utils.ThemeManager
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberPermissionState
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onThemeChanged: () -> Unit = {},
     onLanguageChanged: () -> Unit = {},
+    onNavigateToPremium: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -45,30 +53,31 @@ fun SettingsScreen(
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
     val notificationsFlow = remember(context) { NotificationManager.getNotificationsEnabledFlow(context) }
     val notificationsEnabled by notificationsFlow.collectAsState(initial = false)
+    val reminderFlow = remember(context) { ReminderManager.getReminderDaysFlow(context) }
+    val currentReminderDays by reminderFlow.collectAsState(initial = ReminderManager.defaultReminderDays)
     
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var reminderExpanded by remember { mutableStateOf(false) }
+    var showPremiumDialog by remember { mutableStateOf(false) }
     
-    // Bildirim izni (Android 13+)
-    val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
-    } else {
-        null
-    }
-    
-    // İzin durumunu kontrol et ve state'i güncelle
-    LaunchedEffect(notificationPermissionState?.hasPermission) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationPermissionState?.let { permissionState ->
-                if (permissionState.hasPermission) {
+    // Bildirim izni launcher (Android 13+)
+    val notificationPermissionLauncher = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            scope.launch {
+                if (isGranted) {
                     NotificationManager.saveNotificationsEnabled(context, true)
-                } else if (notificationsEnabled && !permissionState.hasPermission && permissionState.status.isPermanentlyDenied) {
-                    // İzin kalıcı olarak reddedildi, switch'i kapat
+                } else {
+                    // İzin reddedildi, switch'i kapat
                     NotificationManager.saveNotificationsEnabled(context, false)
                 }
             }
         }
+    } else {
+        null
     }
     
     Scaffold(
@@ -91,6 +100,13 @@ fun SettingsScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
+            // Premium Banner (EN ÜSTTE)
+            item {
+                PremiumBannerCard(
+                    onClick = { onNavigateToPremium() }
+                )
+            }
+            
             // Görünüm Bölümü
             item {
                 SettingsSection(title = stringResource(R.string.section_appearance)) {
@@ -149,7 +165,7 @@ fun SettingsScreen(
                     val currentLang = LocaleManager.getLanguage(currentLanguage)
                     SettingItem(
                         label = stringResource(R.string.language),
-                        value = "${currentLang?.flag ?: "🇹🇷"} ${currentLang?.name ?: "Türkçe"}",
+                        value = "${currentLang?.flag ?: "🇹🇷"} ${currentLang?.name ?: "Turkish"}",
                         onClick = { languageExpanded = true }
                     ) {
                         DropdownMenu(
@@ -277,8 +293,7 @@ fun SettingsScreen(
                                     if (enabled) {
                                         // Android 13+ için izin iste
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                            notificationPermissionState?.launchPermissionRequest()
-                                            // İzin durumunu LaunchedEffect ile kontrol et
+                                            notificationPermissionLauncher?.launch(Manifest.permission.POST_NOTIFICATIONS)
                                         } else {
                                             // Android 13 altı için izin gerekmez
                                             NotificationManager.saveNotificationsEnabled(context, true)
@@ -292,7 +307,149 @@ fun SettingsScreen(
                     }
                 }
             }
+            
+            // Billing Cycle Reminder Bölümü
+            item {
+                SettingsSection(title = stringResource(R.string.section_billing_reminder)) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        val currentReminder = ReminderManager.getReminderOption(currentReminderDays)
+                            ?: ReminderManager.reminderOptions.first()
+                        
+                        val reminderLabel = when (currentReminder.days) {
+                            7 -> stringResource(R.string.billing_reminder_7_days)
+                            3 -> stringResource(R.string.billing_reminder_3_days)
+                            1 -> stringResource(R.string.billing_reminder_1_day)
+                            else -> currentReminder.label
+                        }
+                        
+                        OutlinedTextField(
+                            value = "$reminderLabel ${if (currentReminder.isPremium) "(${stringResource(R.string.premium_label)})" else "(${stringResource(R.string.free_label)})"}",
+                            onValueChange = {},
+                            label = { Text(stringResource(R.string.section_billing_reminder)) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { reminderExpanded = true },
+                            readOnly = true,
+                            shape = MaterialTheme.shapes.medium,
+                            trailingIcon = {
+                                IconButton(onClick = { reminderExpanded = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null
+                                    )
+                                }
+                            }
+                        )
+                        DropdownMenu(
+                            expanded = reminderExpanded,
+                            onDismissRequest = { reminderExpanded = false }
+                        ) {
+                            ReminderManager.reminderOptions.forEach { option ->
+                                val optionLabel = when (option.days) {
+                                    7 -> stringResource(R.string.billing_reminder_7_days)
+                                    3 -> stringResource(R.string.billing_reminder_3_days)
+                                    1 -> stringResource(R.string.billing_reminder_1_day)
+                                    else -> option.label
+                                }
+                                
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = optionLabel,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = if (option.isPremium) 
+                                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                    else 
+                                                        MaterialTheme.colorScheme.onSurface
+                                                )
+                                                if (option.isPremium) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Lock,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = if (option.isPremium) stringResource(R.string.premium_label) else stringResource(R.string.free_label),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (option.isPremium) 
+                                                    MaterialTheme.colorScheme.primary 
+                                                else 
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        if (option.isPremium) {
+                                            // Premium özellik - dialog göster
+                                            reminderExpanded = false
+                                            showPremiumDialog = true
+                                        } else {
+                                            // Free özellik - kaydet
+                                            scope.launch {
+                                                ReminderManager.saveReminderDays(context, option.days)
+                                                reminderExpanded = false
+                                            }
+                                        }
+                                    },
+                                    enabled = true
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
+    }
+    
+    // Premium Feature Dialog
+    if (showPremiumDialog) {
+        AlertDialog(
+            onDismissRequest = { showPremiumDialog = false },
+            shape = MaterialTheme.shapes.extraLarge,
+            title = {
+                Text(
+                    text = stringResource(R.string.premium_feature_title),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.premium_feature_description),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showPremiumDialog = false
+                        // TODO: Premium upgrade akışı
+                    },
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(stringResource(R.string.upgrade_to_premium))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showPremiumDialog = false },
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
@@ -346,5 +503,88 @@ fun SettingItem(
             }
         )
         dropdownContent()
+    }
+}
+
+@Composable
+fun PremiumBannerCard(
+    onClick: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    
+    val gradientColors = if (isDark) {
+        listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)
+        )
+    } else {
+        listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
+        )
+    }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.horizontalGradient(gradientColors),
+                    shape = MaterialTheme.shapes.large
+                )
+                .padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = if (isDark) Color(0xFFFFD700) else Color(0xFFFFA500),
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.upgrade_to_premium),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.premium_banner_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }

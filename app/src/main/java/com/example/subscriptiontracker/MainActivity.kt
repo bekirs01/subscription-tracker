@@ -23,6 +23,8 @@ import com.example.subscriptiontracker.navigation.NavGraph
 import com.example.subscriptiontracker.ui.theme.SubscriptionTrackerTheme
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
+import com.example.subscriptiontracker.utils.PeriodManager
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 // Veri Modeli
@@ -70,7 +72,7 @@ fun AppContent() {
     val languageFlow = remember(context) { LocaleManager.getLanguageFlow(context) }
     val currentLanguage by languageFlow.collectAsState(initial = LocaleManager.defaultLanguage)
     
-    SubscriptionTrackerTheme {
+            SubscriptionTrackerTheme {
         val navController = rememberNavController()
         NavGraph(
             navController = navController,
@@ -156,15 +158,27 @@ fun AddSubscriptionDialog(
     onSave: (Subscription) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
     val currency = CurrencyManager.getCurrency(currentCurrency)
     
+    // Varsayılan periyot DataStore'dan al
+    val defaultPeriodFlow = remember { PeriodManager.getDefaultPeriodFlow(context) }
+    val defaultPeriodString by defaultPeriodFlow.collectAsState(initial = PeriodManager.defaultPeriod)
+    
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
-    var selectedPeriod by remember { mutableStateOf(Period.MONTHLY) }
+    var selectedPeriod by remember { 
+        mutableStateOf(
+            if (defaultPeriodString == "YEARLY") Period.YEARLY else Period.MONTHLY
+        )
+    }
     var renewalDate by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
+    var periodExpanded by remember { mutableStateOf(false) }
+    
+    // Periyot seçildi mi kontrolü
+    val isPeriodSelected = true // İlk açılışta varsayılan seçili
     
     // Validasyon state'leri
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -239,7 +253,60 @@ fun AddSubscriptionDialog(
                     .padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // İsim alanı
+                // Periyot seçimi (İLK SIRADA)
+                Text(
+                    text = stringResource(R.string.select_period_first),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Box {
+                    OutlinedTextField(
+                        value = if (selectedPeriod == Period.MONTHLY) stringResource(R.string.monthly) else stringResource(R.string.yearly),
+                        onValueChange = {},
+                        label = { Text(stringResource(R.string.period)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { periodExpanded = true },
+                        readOnly = true,
+                        shape = MaterialTheme.shapes.medium,
+                        trailingIcon = {
+                            IconButton(onClick = { periodExpanded = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    )
+                    DropdownMenu(
+                        expanded = periodExpanded,
+                        onDismissRequest = { periodExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.monthly)) },
+                            onClick = {
+                                selectedPeriod = Period.MONTHLY
+                                periodExpanded = false
+                                scope.launch {
+                                    PeriodManager.saveDefaultPeriod(context, "MONTHLY")
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.yearly)) },
+                            onClick = {
+                                selectedPeriod = Period.YEARLY
+                                periodExpanded = false
+                                scope.launch {
+                                    PeriodManager.saveDefaultPeriod(context, "YEARLY")
+                                }
+                            }
+                        )
+                    }
+                }
+                
+                // İsim alanı (periyot seçildikten sonra aktif)
                 OutlinedTextField(
                     value = name,
                     onValueChange = { 
@@ -249,6 +316,7 @@ fun AddSubscriptionDialog(
                     label = { Text(stringResource(R.string.name)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    enabled = isPeriodSelected,
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
                     shape = MaterialTheme.shapes.medium
@@ -264,57 +332,18 @@ fun AddSubscriptionDialog(
                     label = { Text(stringResource(R.string.price)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    enabled = isPeriodSelected,
                     isError = priceError != null,
                     supportingText = priceError?.let { { Text(it) } },
                     shape = MaterialTheme.shapes.medium,
-                    leadingIcon = {
+                    prefix = {
                         Text(
-                            text = currency?.symbol ?: "₺",
+                            text = "${currency?.symbol ?: "₺"} ",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 16.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
-                
-                // Periyot dropdown
-                Box {
-                    OutlinedTextField(
-                        value = if (selectedPeriod == Period.MONTHLY) stringResource(R.string.monthly) else stringResource(R.string.yearly),
-                        onValueChange = {},
-                        label = { Text(stringResource(R.string.period)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { expanded = true },
-                        readOnly = true,
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null
-                            )
-                        },
-                        shape = MaterialTheme.shapes.medium
-                    )
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.monthly)) },
-                            onClick = {
-                                selectedPeriod = Period.MONTHLY
-                                expanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.yearly)) },
-                            onClick = {
-                                selectedPeriod = Period.YEARLY
-                                expanded = false
-                            }
-                        )
-                    }
-                }
                 
                 // Tarih alanı
                 OutlinedTextField(
@@ -326,6 +355,7 @@ fun AddSubscriptionDialog(
                     label = { Text(stringResource(R.string.renewal_date)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    enabled = isPeriodSelected,
                     placeholder = { Text(stringResource(R.string.renewal_date_placeholder)) },
                     isError = dateError != null,
                     supportingText = dateError?.let { { Text(it) } },
@@ -337,6 +367,13 @@ fun AddSubscriptionDialog(
             Button(
                 onClick = {
                     if (isFormValid) {
+                        scope.launch {
+                            // Seçilen periyodu DataStore'a kaydet
+                            PeriodManager.saveDefaultPeriod(
+                                context, 
+                                if (selectedPeriod == Period.MONTHLY) "MONTHLY" else "YEARLY"
+                            )
+                        }
                         onSave(
                             Subscription(
                                 id = 0,
@@ -346,17 +383,10 @@ fun AddSubscriptionDialog(
                                 renewalDate = renewalDate
                             )
                         )
-                        // Formu temizle
-                        name = ""
-                        price = ""
-                        selectedPeriod = Period.MONTHLY
-                        renewalDate = ""
-                        nameError = null
-                        priceError = null
-                        dateError = null
+                        onDismiss()
                     }
                 },
-                enabled = isFormValid,
+                enabled = isFormValid && isPeriodSelected,
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(stringResource(R.string.save))
@@ -368,7 +398,7 @@ fun AddSubscriptionDialog(
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(stringResource(R.string.cancel))
-            }
+    }
         }
     )
 }
