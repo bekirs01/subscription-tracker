@@ -14,13 +14,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
+import android.Manifest
+import android.os.Build
+import androidx.compose.material.icons.filled.Notifications
 import com.example.subscriptiontracker.utils.AppTheme
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
+import com.example.subscriptiontracker.utils.NotificationManager
 import com.example.subscriptiontracker.utils.ThemeManager
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun SettingsScreen(
     onThemeChanged: () -> Unit = {},
@@ -37,10 +43,33 @@ fun SettingsScreen(
     val currentLanguage by languageFlow.collectAsState(initial = LocaleManager.defaultLanguage)
     val currencyFlow = remember(context) { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
+    val notificationsFlow = remember(context) { NotificationManager.getNotificationsEnabledFlow(context) }
+    val notificationsEnabled by notificationsFlow.collectAsState(initial = false)
     
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    
+    // Bildirim izni (Android 13+)
+    val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        null
+    }
+    
+    // İzin durumunu kontrol et ve state'i güncelle
+    LaunchedEffect(notificationPermissionState?.hasPermission) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionState?.let { permissionState ->
+                if (permissionState.hasPermission) {
+                    NotificationManager.saveNotificationsEnabled(context, true)
+                } else if (notificationsEnabled && !permissionState.hasPermission && permissionState.status.isPermanentlyDenied) {
+                    // İzin kalıcı olarak reddedildi, switch'i kapat
+                    NotificationManager.saveNotificationsEnabled(context, false)
+                }
+            }
+        }
+    }
     
     Scaffold(
         topBar = {
@@ -206,6 +235,60 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+            
+            // Bildirimler Bölümü
+            item {
+                SettingsSection(title = stringResource(R.string.section_notifications)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.notifications),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = stringResource(R.string.notifications_description),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = notificationsEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    if (enabled) {
+                                        // Android 13+ için izin iste
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            notificationPermissionState?.launchPermissionRequest()
+                                            // İzin durumunu LaunchedEffect ile kontrol et
+                                        } else {
+                                            // Android 13 altı için izin gerekmez
+                                            NotificationManager.saveNotificationsEnabled(context, true)
+                                        }
+                                    } else {
+                                        NotificationManager.saveNotificationsEnabled(context, false)
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
             }

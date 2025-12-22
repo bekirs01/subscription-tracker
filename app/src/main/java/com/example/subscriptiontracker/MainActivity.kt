@@ -155,6 +155,11 @@ fun AddSubscriptionDialog(
     onDismiss: () -> Unit,
     onSave: (Subscription) -> Unit
 ) {
+    val context = LocalContext.current
+    val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
+    val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
+    val currency = CurrencyManager.getCurrency(currentCurrency)
+    
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var selectedPeriod by remember { mutableStateOf(Period.MONTHLY) }
@@ -249,7 +254,7 @@ fun AddSubscriptionDialog(
                     shape = MaterialTheme.shapes.medium
                 )
                 
-                // Ücret alanı
+                // Ücret alanı (para birimi ile)
                 OutlinedTextField(
                     value = price,
                     onValueChange = { 
@@ -261,7 +266,15 @@ fun AddSubscriptionDialog(
                     singleLine = true,
                     isError = priceError != null,
                     supportingText = priceError?.let { { Text(it) } },
-                    shape = MaterialTheme.shapes.medium
+                    shape = MaterialTheme.shapes.medium,
+                    leadingIcon = {
+                        Text(
+                            text = currency?.symbol ?: "₺",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
+                    }
                 )
                 
                 // Periyot dropdown

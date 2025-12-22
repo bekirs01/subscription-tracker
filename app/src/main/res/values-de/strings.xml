@@ -1,12 +1,18 @@
 <resources>
-    <string name="app_name">Abonnement-Tracker</string>
+    <string name="app_name">Subtracky</string>
     
-    <!-- Ana Ekran -->
+    <!-- Home Screen -->
+    <string name="app_title">Subtracky</string>
+    <string name="premium">Premium</string>
+    <string name="subscriptions_tab">Abonnements</string>
     <string name="subscriptions_title">Meine Abonnements</string>
-    <string name="add_subscription">Hinzufügen</string>
+    <string name="budget_tracking_tab">Budgetverfolgung</string>
+    <string name="no_subscriptions_title">Sie haben noch keine Abonnements</string>
+    <string name="no_subscriptions_subtitle">Fügen Sie Ihr erstes Abonnement hinzu, um zu beginnen</string>
     <string name="no_subscriptions">Noch keine Abonnements hinzugefügt</string>
+    <string name="add_subscription">Hinzufügen</string>
     
-    <!-- Abonelik Detayları -->
+    <!-- Subscription Details -->
     <string name="period">Zeitraum</string>
     <string name="renewal">Verlängerung</string>
     <string name="monthly">Monatlich</string>
@@ -16,14 +22,43 @@
     <string name="add_subscription_title">Neues Abonnement hinzufügen</string>
     <string name="name">Name</string>
     <string name="price">Preis</string>
-    <string name="renewal_date">Verlängerungsdatum (jjjj-MM-tt)</string>
+    <string name="renewal_date">Verlängerungsdatum (yyyy-MM-dd)</string>
     <string name="renewal_date_placeholder">2024-12-31</string>
     <string name="save">Speichern</string>
     <string name="cancel">Abbrechen</string>
     
-    <!-- Ayarlar -->
+    <!-- Settings -->
     <string name="settings_title">Einstellungen</string>
     <string name="language">Sprache</string>
-    <string name="select_language">Sprache auswählen</string>
+    <string name="theme">Design</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="coming_soon">Demnächst</string>
+    
+    <!-- Language Names -->
+    <string name="language_turkish">Türkisch</string>
+    <string name="language_english">Englisch</string>
+    <string name="language_german">Deutsch</string>
+    <string name="language_russian">Russisch</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Startseite</string>
+    <string name="nav_add">Hinzufügen</string>
+    <string name="nav_settings">Einstellungen</string>
+    
+    <!-- Validation Errors -->
+    <string name="error_name_invalid">Der Name darf nur Buchstaben und Leerzeichen enthalten</string>
+    <string name="error_price_invalid">Der Preis muss eine gültige Zahl sein</string>
+    <string name="error_date_format">Das Datum muss im Format yyyy-MM-dd sein</string>
+    <string name="error_date_invalid">Bitte geben Sie ein gültiges Datum ein</string>
+    
+    <!-- Settings Sections -->
+    <string name="section_appearance">Erscheinungsbild</string>
+    <string name="section_language">Sprache</string>
+    <string name="section_currency">Währung</string>
+    <string name="section_notifications">Benachrichtigungen</string>
+    <string name="currency">Währung</string>
+    <string name="notifications">Benachrichtigungen</string>
+    <string name="notifications_description">Benachrichtigungen für Abonnementverlängerungen aktivieren</string>
 </resources>
-

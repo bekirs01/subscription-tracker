@@ -63,6 +63,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     // Explicit navigation dependency to resolve import issues
     implementation("androidx.navigation:navigation-compose:2.7.5")
+    // Accompanist Permissions
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

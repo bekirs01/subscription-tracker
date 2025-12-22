@@ -57,5 +57,8 @@
     <string name="section_appearance">Appearance</string>
     <string name="section_language">Language</string>
     <string name="section_currency">Currency</string>
+    <string name="section_notifications">Notifications</string>
     <string name="currency">Currency</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_description">Enable notifications for subscription renewals</string>
 </resources>

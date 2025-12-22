@@ -1,12 +1,18 @@
 <resources>
-    <string name="app_name">Отслеживание подписок</string>
+    <string name="app_name">Subtracky</string>
     
-    <!-- Ana Ekran -->
+    <!-- Home Screen -->
+    <string name="app_title">Subtracky</string>
+    <string name="premium">Премиум</string>
+    <string name="subscriptions_tab">Подписки</string>
     <string name="subscriptions_title">Мои подписки</string>
-    <string name="add_subscription">Добавить</string>
+    <string name="budget_tracking_tab">Отслеживание бюджета</string>
+    <string name="no_subscriptions_title">У вас пока нет подписок</string>
+    <string name="no_subscriptions_subtitle">Добавьте свою первую подписку, чтобы начать</string>
     <string name="no_subscriptions">Подписки еще не добавлены</string>
+    <string name="add_subscription">Добавить</string>
     
-    <!-- Abonelik Detayları -->
+    <!-- Subscription Details -->
     <string name="period">Период</string>
     <string name="renewal">Продление</string>
     <string name="monthly">Ежемесячно</string>
@@ -21,9 +27,38 @@
     <string name="save">Сохранить</string>
     <string name="cancel">Отмена</string>
     
-    <!-- Ayarlar -->
+    <!-- Settings -->
     <string name="settings_title">Настройки</string>
     <string name="language">Язык</string>
-    <string name="select_language">Выберите язык</string>
+    <string name="theme">Тема</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Темная</string>
+    <string name="coming_soon">Скоро</string>
+    
+    <!-- Language Names -->
+    <string name="language_turkish">Турецкий</string>
+    <string name="language_english">Английский</string>
+    <string name="language_german">Немецкий</string>
+    <string name="language_russian">Русский</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Главная</string>
+    <string name="nav_add">Добавить</string>
+    <string name="nav_settings">Настройки</string>
+    
+    <!-- Validation Errors -->
+    <string name="error_name_invalid">Имя может содержать только буквы и пробелы</string>
+    <string name="error_price_invalid">Цена должна быть действительным числом</string>
+    <string name="error_date_format">Дата должна быть в формате гггг-ММ-дд</string>
+    <string name="error_date_invalid">Пожалуйста, введите действительную дату</string>
+    
+    <!-- Settings Sections -->
+    <string name="section_appearance">Внешний вид</string>
+    <string name="section_language">Язык</string>
+    <string name="section_currency">Валюта</string>
+    <string name="section_notifications">Уведомления</string>
+    <string name="currency">Валюта</string>
+    <string name="notifications">Уведомления</string>
+    <string name="notifications_description">Включить уведомления о продлении подписок</string>
 </resources>
-

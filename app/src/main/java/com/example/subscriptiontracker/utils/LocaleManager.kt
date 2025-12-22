@@ -21,37 +21,19 @@ object LocaleManager {
     // Varsayılan dil: Türkçe
     const val defaultLanguage = "tr"
     
-    // Dünyada en çok kullanılan 30 dil
+    // Çalışan diller (sadece strings.xml dosyaları olanlar)
+    // Dil isimleri HER ZAMAN İngilizce gösterilir
     val supportedLanguages = listOf(
-        Language("tr", "Türkçe", "🇹🇷"),
+        Language("tr", "Turkish", "🇹🇷"),
         Language("en", "English", "🇺🇸"),
-        Language("de", "Deutsch", "🇩🇪"),
-        Language("ru", "Русский", "🇷🇺"),
-        Language("fr", "Français", "🇫🇷"),
-        Language("es", "Español", "🇪🇸"),
-        Language("pt", "Português", "🇧🇷"),
-        Language("it", "Italiano", "🇮🇹"),
-        Language("ar", "العربية", "🇸🇦"),
-        Language("zh", "中文", "🇨🇳"),
-        Language("ja", "日本語", "🇯🇵"),
-        Language("ko", "한국어", "🇰🇷"),
-        Language("hi", "हिन्दी", "🇮🇳"),
-        Language("nl", "Nederlands", "🇳🇱"),
-        Language("pl", "Polski", "🇵🇱"),
-        Language("sv", "Svenska", "🇸🇪"),
-        Language("no", "Norsk", "🇳🇴"),
-        Language("da", "Dansk", "🇩🇰"),
-        Language("fi", "Suomi", "🇫🇮"),
-        Language("cs", "Čeština", "🇨🇿"),
-        Language("hu", "Magyar", "🇭🇺"),
-        Language("ro", "Română", "🇷🇴"),
-        Language("el", "Ελληνικά", "🇬🇷"),
-        Language("he", "עברית", "🇮🇱"),
-        Language("th", "ไทย", "🇹🇭"),
-        Language("vi", "Tiếng Việt", "🇻🇳"),
-        Language("id", "Bahasa Indonesia", "🇮🇩"),
-        Language("ms", "Bahasa Melayu", "🇲🇾"),
-        Language("uk", "Українська", "🇺🇦")
+        Language("de", "German", "🇩🇪"),
+        Language("ru", "Russian", "🇷🇺"),
+        Language("fr", "French", "🇫🇷"),
+        Language("es", "Spanish", "🇪🇸"),
+        Language("it", "Italian", "🇮🇹"),
+        Language("pt", "Portuguese", "🇧🇷"),
+        Language("ar", "Arabic", "🇸🇦"),
+        Language("zh", "Chinese", "🇨🇳")
     )
     
     fun getLanguageFlow(context: Context): Flow<String> {
