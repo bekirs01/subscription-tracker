@@ -15,7 +15,8 @@ sealed class Screen(val route: String) {
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    onThemeChanged: () -> Unit = {}
+    onThemeChanged: () -> Unit = {},
+    onLanguageChanged: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -31,6 +32,7 @@ fun NavGraph(
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onThemeChanged = onThemeChanged,
+                onLanguageChanged = onLanguageChanged,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

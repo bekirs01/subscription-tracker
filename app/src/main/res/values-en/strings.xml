@@ -37,25 +37,14 @@
     <string name="coming_soon">Coming Soon</string>
     
     <!-- Language Names -->
-    <string name="language_turkish">Türkçe</string>
+    <string name="language_turkish">Turkish</string>
     <string name="language_english">English</string>
-    <string name="language_german">Deutsch</string>
-    <string name="language_russian">Русский</string>
+    <string name="language_german">German</string>
+    <string name="language_russian">Russian</string>
     
     <!-- Navigation -->
     <string name="nav_home">Home</string>
     <string name="nav_add">Add</string>
     <string name="nav_settings">Settings</string>
-    
-    <!-- Validation Errors -->
-    <string name="error_name_invalid">Name can only contain letters and spaces</string>
-    <string name="error_price_invalid">Price must be a valid number</string>
-    <string name="error_date_format">Date must be in format yyyy-MM-dd</string>
-    <string name="error_date_invalid">Please enter a valid date</string>
-    
-    <!-- Settings Sections -->
-    <string name="section_appearance">Appearance</string>
-    <string name="section_language">Language</string>
-    <string name="section_currency">Currency</string>
-    <string name="currency">Currency</string>
 </resources>
+
