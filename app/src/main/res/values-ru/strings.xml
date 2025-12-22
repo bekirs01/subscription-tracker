@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Отслеживание подписок</string>
+    
+    <!-- Ana Ekran -->
+    <string name="subscriptions_title">Мои подписки</string>
+    <string name="add_subscription">Добавить</string>
+    <string name="no_subscriptions">Подписки еще не добавлены</string>
+    
+    <!-- Abonelik Detayları -->
+    <string name="period">Период</string>
+    <string name="renewal">Продление</string>
+    <string name="monthly">Ежемесячно</string>
+    <string name="yearly">Ежегодно</string>
+    
+    <!-- Dialog -->
+    <string name="add_subscription_title">Добавить новую подписку</string>
+    <string name="name">Название</string>
+    <string name="price">Цена</string>
+    <string name="renewal_date">Дата продления (гггг-ММ-дд)</string>
+    <string name="renewal_date_placeholder">2024-12-31</string>
+    <string name="save">Сохранить</string>
+    <string name="cancel">Отмена</string>
+    
+    <!-- Ayarlar -->
+    <string name="settings_title">Настройки</string>
+    <string name="language">Язык</string>
+    <string name="select_language">Выберите язык</string>
+</resources>
+

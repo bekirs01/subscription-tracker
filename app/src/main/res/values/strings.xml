@@ -1,3 +1,49 @@
 <resources>
-    <string name="app_name">Subscription Tracker</string>
+    <string name="app_name">Subtracky</string>
+    
+    <!-- Ana Ekran -->
+    <string name="app_title">Subtracky</string>
+    <string name="premium">Premium</string>
+    <string name="subscriptions_tab">Abonelikler</string>
+    <string name="subscriptions_title">Aboneliklerim</string>
+    <string name="budget_tracking_tab">Bütçe Takibi</string>
+    <string name="no_subscriptions_title">Henüz aboneliğiniz yok</string>
+    <string name="no_subscriptions_subtitle">Başlamak için ilk aboneliğinizi ekleyin</string>
+    <string name="no_subscriptions">Henüz abonelik eklenmedi</string>
+    <string name="add_subscription">Ekle</string>
+    
+    <!-- Abonelik Detayları -->
+    <string name="period">Periyot</string>
+    <string name="renewal">Yenileme</string>
+    <string name="monthly">Aylık</string>
+    <string name="yearly">Yıllık</string>
+    
+    <!-- Dialog -->
+    <string name="add_subscription_title">Yeni Abonelik Ekle</string>
+    <string name="name">İsim</string>
+    <string name="price">Ücret</string>
+    <string name="renewal_date">Yenileme Tarihi (yyyy-MM-dd)</string>
+    <string name="renewal_date_placeholder">2024-12-31</string>
+    <string name="save">Kaydet</string>
+    <string name="cancel">İptal</string>
+    
+    <!-- Ayarlar -->
+    <string name="settings_title">Ayarlar</string>
+    <string name="language">Dil</string>
+    <string name="theme">Tema</string>
+    <string name="theme_system">Sistem</string>
+    <string name="theme_light">Açık</string>
+    <string name="theme_dark">Koyu</string>
+    <string name="coming_soon">Yakında</string>
+    
+    <!-- Dil İsimleri -->
+    <string name="language_turkish">Türkçe</string>
+    <string name="language_english">English</string>
+    <string name="language_german">Deutsch</string>
+    <string name="language_russian">Русский</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Ana Sayfa</string>
+    <string name="nav_add">Ekle</string>
+    <string name="nav_settings">Ayarlar</string>
 </resources>

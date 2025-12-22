@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Abonnement-Tracker</string>
+    
+    <!-- Ana Ekran -->
+    <string name="subscriptions_title">Meine Abonnements</string>
+    <string name="add_subscription">Hinzufügen</string>
+    <string name="no_subscriptions">Noch keine Abonnements hinzugefügt</string>
+    
+    <!-- Abonelik Detayları -->
+    <string name="period">Zeitraum</string>
+    <string name="renewal">Verlängerung</string>
+    <string name="monthly">Monatlich</string>
+    <string name="yearly">Jährlich</string>
+    
+    <!-- Dialog -->
+    <string name="add_subscription_title">Neues Abonnement hinzufügen</string>
+    <string name="name">Name</string>
+    <string name="price">Preis</string>
+    <string name="renewal_date">Verlängerungsdatum (jjjj-MM-tt)</string>
+    <string name="renewal_date_placeholder">2024-12-31</string>
+    <string name="save">Speichern</string>
+    <string name="cancel">Abbrechen</string>
+    
+    <!-- Ayarlar -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="language">Sprache</string>
+    <string name="select_language">Sprache auswählen</string>
+</resources>
+

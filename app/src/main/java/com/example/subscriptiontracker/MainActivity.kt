@@ -6,18 +6,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.rememberNavController
+import com.example.subscriptiontracker.R
+import com.example.subscriptiontracker.navigation.NavGraph
 import com.example.subscriptiontracker.ui.theme.SubscriptionTrackerTheme
+import com.example.subscriptiontracker.utils.LocaleManager
 
 // Veri Modeli
 data class Subscription(
@@ -35,66 +37,33 @@ enum class Period {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Dil tercihini uygula (varsayılan Türkçe)
+        try {
+            val locale = LocaleManager.getLocale("tr")
+            val config = resources.configuration
+            config.setLocale(locale)
+            @Suppress("DEPRECATION")
+            resources.updateConfiguration(config, resources.displayMetrics)
+        } catch (e: Exception) {
+            // Hata durumunda varsayılan devam et
+        }
+        
         enableEdgeToEdge()
         setContent {
             SubscriptionTrackerTheme {
-                SubscriptionListScreen()
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SubscriptionListScreen() {
-    var subscriptions by remember { mutableStateOf<List<Subscription>>(emptyList()) }
-    var showDialog by remember { mutableStateOf(false) }
-    var nextId by remember { mutableStateOf(1) }
-    
-    Scaffold(
-        topBar = {
-            SmallTopAppBar(
-                title = { Text("Aboneliklerim") },
-                actions = {
-                    IconButton(onClick = { showDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Ekle")
+                val navController = rememberNavController()
+                var themeChanged by remember { mutableIntStateOf(0) }
+                
+                NavGraph(
+                    navController = navController,
+                    onThemeChanged = {
+                        themeChanged++
+                        // Activity'yi yeniden başlat
+                        recreate()
                     }
-                }
-            )
-        }
-    ) { paddingValues ->
-        if (subscriptions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Henüz abonelik eklenmedi")
+                )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(subscriptions) { subscription ->
-                    SubscriptionItem(subscription = subscription)
-                }
-            }
-        }
-        
-        if (showDialog) {
-            AddSubscriptionDialog(
-                onDismiss = { showDialog = false },
-                onSave = { subscription ->
-                    subscriptions = subscriptions + subscription.copy(id = nextId)
-                    nextId++
-                    showDialog = false
-                }
-            )
         }
     }
 }
@@ -121,11 +90,11 @@ fun SubscriptionItem(subscription: Subscription) {
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
-                text = "Periyot: ${if (subscription.period == Period.MONTHLY) "Aylık" else "Yıllık"}",
+                text = "${stringResource(R.string.period)}: ${if (subscription.period == Period.MONTHLY) stringResource(R.string.monthly) else stringResource(R.string.yearly)}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = "Yenileme: ${subscription.renewalDate}",
+                text = "${stringResource(R.string.renewal)}: ${subscription.renewalDate}",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -145,7 +114,7 @@ fun AddSubscriptionDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Yeni Abonelik Ekle") },
+        title = { Text(stringResource(R.string.add_subscription_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -154,7 +123,7 @@ fun AddSubscriptionDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("İsim") },
+                    label = { Text(stringResource(R.string.name)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -162,16 +131,16 @@ fun AddSubscriptionDialog(
                 OutlinedTextField(
                     value = price,
                     onValueChange = { price = it },
-                    label = { Text("Ücret") },
+                    label = { Text(stringResource(R.string.price)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
                 
                 Box {
                     OutlinedTextField(
-                        value = if (selectedPeriod == Period.MONTHLY) "Aylık" else "Yıllık",
+                        value = if (selectedPeriod == Period.MONTHLY) stringResource(R.string.monthly) else stringResource(R.string.yearly),
                         onValueChange = {},
-                        label = { Text("Periyot") },
+                        label = { Text(stringResource(R.string.period)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { expanded = true },
@@ -188,14 +157,14 @@ fun AddSubscriptionDialog(
                         onDismissRequest = { expanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Aylık") },
+                            text = { Text(stringResource(R.string.monthly)) },
                             onClick = {
                                 selectedPeriod = Period.MONTHLY
                                 expanded = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Yıllık") },
+                            text = { Text(stringResource(R.string.yearly)) },
                             onClick = {
                                 selectedPeriod = Period.YEARLY
                                 expanded = false
@@ -207,10 +176,10 @@ fun AddSubscriptionDialog(
                 OutlinedTextField(
                     value = renewalDate,
                     onValueChange = { renewalDate = it },
-                    label = { Text("Yenileme Tarihi (yyyy-MM-dd)") },
+                    label = { Text(stringResource(R.string.renewal_date)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    placeholder = { Text("2024-12-31") }
+                    placeholder = { Text(stringResource(R.string.renewal_date_placeholder)) }
                 )
             }
         },
@@ -234,12 +203,12 @@ fun AddSubscriptionDialog(
                     }
                 }
             ) {
-                Text("Kaydet")
+                Text(stringResource(R.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("İptal")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

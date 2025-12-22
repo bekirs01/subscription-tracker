@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Abonelik Takip</string>
+    
+    <!-- Ana Ekran -->
+    <string name="subscriptions_title">Aboneliklerim</string>
+    <string name="add_subscription">Ekle</string>
+    <string name="no_subscriptions">Henüz abonelik eklenmedi</string>
+    
+    <!-- Abonelik Detayları -->
+    <string name="period">Periyot</string>
+    <string name="renewal">Yenileme</string>
+    <string name="monthly">Aylık</string>
+    <string name="yearly">Yıllık</string>
+    
+    <!-- Dialog -->
+    <string name="add_subscription_title">Yeni Abonelik Ekle</string>
+    <string name="name">İsim</string>
+    <string name="price">Ücret</string>
+    <string name="renewal_date">Yenileme Tarihi (yyyy-MM-dd)</string>
+    <string name="renewal_date_placeholder">2024-12-31</string>
+    <string name="save">Kaydet</string>
+    <string name="cancel">İptal</string>
+    
+    <!-- Ayarlar -->
+    <string name="settings_title">Ayarlar</string>
+    <string name="language">Dil</string>
+    <string name="select_language">Dil Seçin</string>
+</resources>
+
