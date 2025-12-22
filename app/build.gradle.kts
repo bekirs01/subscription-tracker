@@ -65,6 +65,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.5")
     // Accompanist Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+    // Google Play Billing
+    implementation("com.android.billingclient:billing-ktx:6.1.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

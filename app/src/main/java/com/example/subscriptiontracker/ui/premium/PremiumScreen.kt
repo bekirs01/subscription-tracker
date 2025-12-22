@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,34 +16,96 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
-import com.example.subscriptiontracker.utils.CurrencyManager
+import com.example.subscriptiontracker.utils.BillingManager
+import com.example.subscriptiontracker.utils.PremiumManager
+import kotlinx.coroutines.launch
 
 data class PremiumPackage(
     val id: String,
     val name: String,
     val price: String,
     val period: String,
-    val isPopular: Boolean = false
+    val isPopular: Boolean = false,
+    val productId: String,
+    val productType: String // "SUBS" or "INAPP"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PremiumScreen(
     onNavigateBack: () -> Unit,
-    onPurchase: (PremiumPackage) -> Unit = {}
+    onPurchaseComplete: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
-    val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
-    val currency = CurrencyManager.getCurrency(currentCurrency)
-    val currencySymbol = currency?.symbol ?: "₺"
+    val activity = context as? androidx.activity.ComponentActivity
+    val scope = rememberCoroutineScope()
+    
+    // Premium state
+    val premiumFlow = remember { PremiumManager.isPremiumFlow(context) }
+    val isPremium by premiumFlow.collectAsState(initial = false)
+    
+    // Billing Manager
+    val billingManager = remember {
+        BillingManager(context) { _ ->
+            scope.launch {
+                PremiumManager.setPremium(context, true)
+                onPurchaseComplete()
+            }
+        }
+    }
+    
+    // Lifecycle observer
+    DisposableEffect(Unit) {
+        if (activity is androidx.lifecycle.LifecycleOwner) {
+            activity.lifecycle.addObserver(billingManager)
+            onDispose {
+                activity.lifecycle.removeObserver(billingManager)
+            }
+        } else {
+            onDispose { }
+        }
+    }
+    
+    val isBillingReady by billingManager.isReady.collectAsState(initial = false)
     
     val packages = remember {
         listOf(
-            PremiumPackage("monthly", "Monthly", "50", "month", false),
-            PremiumPackage("3months", "3 Months", "100", "total", false),
-            PremiumPackage("yearly", "Yearly", "150", "year", true),
-            PremiumPackage("lifetime", "Lifetime", "250", "one-time", false)
+            PremiumPackage(
+                "monthly", 
+                "Monthly", 
+                "50", 
+                "month", 
+                false,
+                BillingManager.PRODUCT_MONTHLY,
+                "SUBS"
+            ),
+            PremiumPackage(
+                "3months", 
+                "3 Months", 
+                "100", 
+                "total", 
+                false,
+                BillingManager.PRODUCT_3MONTHS,
+                "SUBS"
+            ),
+            PremiumPackage(
+                "yearly", 
+                "Yearly", 
+                "150", 
+                "year", 
+                true,
+                BillingManager.PRODUCT_YEARLY,
+                "SUBS"
+            ),
+            PremiumPackage(
+                "lifetime", 
+                "Lifetime", 
+                "250", 
+                "one-time", 
+                false,
+                BillingManager.PRODUCT_LIFETIME,
+                "INAPP"
+            )
         )
     }
     
@@ -62,7 +124,7 @@ fun PremiumScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back)
                         )
                     }
@@ -83,10 +145,18 @@ fun PremiumScreen(
                 ) {
                     Button(
                         onClick = {
-                            selectedPackage?.let { onPurchase(it) }
+                            selectedPackage?.let { packageItem ->
+                                activity?.let {
+                                    billingManager.launchBillingFlow(
+                                        it,
+                                        packageItem.productId,
+                                        packageItem.productType
+                                    )
+                                }
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = selectedPackage != null,
+                        enabled = selectedPackage != null && isBillingReady && !isPremium,
                         shape = MaterialTheme.shapes.large,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
@@ -94,7 +164,7 @@ fun PremiumScreen(
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
                         Text(
-                            text = stringResource(R.string.get_premium),
+                            text = if (isPremium) stringResource(R.string.premium_active) else stringResource(R.string.get_premium),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -137,7 +207,6 @@ fun PremiumScreen(
                 val packageItem = packages[index]
                 PremiumPackageCard(
                     packageItem = packageItem,
-                    currencySymbol = currencySymbol,
                     isSelected = selectedPackage?.id == packageItem.id,
                     onClick = { selectedPackage = packageItem }
                 )
@@ -149,7 +218,6 @@ fun PremiumScreen(
 @Composable
 fun PremiumPackageCard(
     packageItem: PremiumPackage,
-    currencySymbol: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -217,7 +285,7 @@ fun PremiumPackageCard(
                     }
                 }
                 Text(
-                    text = "$currencySymbol${packageItem.price} / ${packageItem.period}",
+                    text = "₺${packageItem.price} / ${packageItem.period}",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

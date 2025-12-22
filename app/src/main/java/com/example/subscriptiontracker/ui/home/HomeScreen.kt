@@ -32,6 +32,7 @@ enum class HomeTab {
 @Composable
 fun HomeScreen(
     onNavigateToSettings: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
     onAddSubscription: () -> Unit
 ) {
     var subscriptions by remember { mutableStateOf<List<Subscription>>(emptyList()) }
@@ -105,7 +106,21 @@ fun HomeScreen(
                     onClick = onNavigateToSettings
                 )
             }
-        }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onNavigateToChat,
+                modifier = Modifier.size(56.dp),
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            ) {
+                Text(
+                    text = "🤖",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End
     ) { paddingValues ->
         Column(
             modifier = Modifier

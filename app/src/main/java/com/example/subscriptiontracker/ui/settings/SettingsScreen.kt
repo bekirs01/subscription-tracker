@@ -1,5 +1,6 @@
 package com.example.subscriptiontracker.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import com.example.subscriptiontracker.utils.AppTheme
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
 import com.example.subscriptiontracker.utils.NotificationManager
+import com.example.subscriptiontracker.utils.PremiumManager
 import com.example.subscriptiontracker.utils.ReminderManager
 import com.example.subscriptiontracker.utils.ThemeManager
 import androidx.compose.material.icons.filled.Lock
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.launch
@@ -55,6 +58,8 @@ fun SettingsScreen(
     val notificationsEnabled by notificationsFlow.collectAsState(initial = false)
     val reminderFlow = remember(context) { ReminderManager.getReminderDaysFlow(context) }
     val currentReminderDays by reminderFlow.collectAsState(initial = ReminderManager.defaultReminderDays)
+    val premiumFlow = remember(context) { PremiumManager.isPremiumFlow(context) }
+    val isPremium by premiumFlow.collectAsState(initial = false)
     
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
@@ -100,11 +105,14 @@ fun SettingsScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
-            // Premium Banner (EN ÜSTTE)
-            item {
-                PremiumBannerCard(
-                    onClick = { onNavigateToPremium() }
-                )
+            // Premium Banner (EN ÜSTTE) - Sadece premium değilse göster
+            if (!isPremium) {
+                item {
+                    PremiumBannerCard(
+                        onClick = { onNavigateToPremium() },
+                        isPremium = isPremium
+                    )
+                }
             }
             
             // Görünüm Bölümü
@@ -391,10 +399,16 @@ fun SettingsScreen(
                                         }
                                     },
                                     onClick = {
-                                        if (option.isPremium) {
-                                            // Premium özellik - dialog göster
+                                        if (option.isPremium && !isPremium) {
+                                            // Premium özellik ama kullanıcı premium değil - Premium ekranına yönlendir
                                             reminderExpanded = false
-                                            showPremiumDialog = true
+                                            onNavigateToPremium()
+                                        } else if (option.isPremium && isPremium) {
+                                            // Premium özellik ve kullanıcı premium - kaydet
+                                            scope.launch {
+                                                ReminderManager.saveReminderDays(context, option.days)
+                                                reminderExpanded = false
+                                            }
                                         } else {
                                             // Free özellik - kaydet
                                             scope.launch {
@@ -508,7 +522,8 @@ fun SettingItem(
 
 @Composable
 fun PremiumBannerCard(
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isPremium: Boolean = false
 ) {
     val isDark = isSystemInDarkTheme()
     
@@ -566,13 +581,13 @@ fun PremiumBannerCard(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = stringResource(R.string.upgrade_to_premium),
+                            text = if (isPremium) stringResource(R.string.premium_active_title) else stringResource(R.string.upgrade_to_premium),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = stringResource(R.string.premium_banner_subtitle),
+                            text = if (isPremium) stringResource(R.string.premium_active_subtitle) else stringResource(R.string.premium_banner_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

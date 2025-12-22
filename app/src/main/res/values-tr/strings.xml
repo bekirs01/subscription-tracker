@@ -77,4 +77,16 @@
     <string name="back">Geri</string>
     <string name="popular">Popüler</string>
     <string name="premium_banner_subtitle">Tüm özelliklerin kilidini açın</string>
+    <string name="premium_active">Premium Aktif</string>
+    <string name="premium_active_title">Premium\'ınız Var</string>
+    <string name="premium_active_subtitle">Tüm özellikler açık</string>
+    
+    <!-- AI Assistant -->
+    <string name="ai_assistant_title">AI Asistanı</string>
+    <string name="ai_assistant">AI Asistanı</string>
+    <string name="ai_welcome_message">Merhaba! Ben AI Asistanınızım. Uygulama içi konularda size yardımcı olabilirim. Nasıl yardımcı olabilirim?</string>
+    <string name="ai_ask_question">Sorunuzu yazın...</string>
+    <string name="send">Gönder</string>
+    <string name="questions_remaining">Kalan soru</string>
+    <string name="ai_daily_limit_reached">Günlük soru limitinize ulaştınız. Premium\'a geçerek sınırsız soru sorabilirsiniz.</string>
 </resources>
