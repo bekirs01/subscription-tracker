@@ -1,5 +1,6 @@
 package com.example.subscriptiontracker.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -7,6 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -418,11 +422,11 @@ fun UpcomingPaymentsSection(subscriptions: List<Subscription>) {
         // Upcoming Payments List
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             upcomingPayments.forEach { (subscription, daysUntil) ->
                 UpcomingPaymentRow(
-                    subscriptionName = subscription.name,
+                    subscription = subscription,
                     daysUntil = daysUntil
                 )
             }
@@ -432,37 +436,147 @@ fun UpcomingPaymentsSection(subscriptions: List<Subscription>) {
 
 @Composable
 fun UpcomingPaymentRow(
-    subscriptionName: String,
+    subscription: Subscription,
     daysUntil: Int
 ) {
+    // Helper function to parse date string and format it
+    val paymentDate = remember(subscription.renewalDate, subscription.period) {
+        try {
+            if (subscription.renewalDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                val parts = subscription.renewalDate.split("-")
+                val year = parts[0].toInt()
+                val month = parts[1].toInt() - 1 // Calendar months are 0-based
+                val day = parts[2].toInt()
+                val startDate = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, day)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                // Calculate next payment date
+                val currentDate = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val nextPaymentDate = calculateNextPaymentDate(startDate, subscription.period, currentDate)
+                
+                // Format as "DD MMM" (e.g., "15 Dec")
+                val monthNames = arrayOf(
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                )
+                val dayOfMonth = nextPaymentDate.get(Calendar.DAY_OF_MONTH)
+                val monthName = monthNames[nextPaymentDate.get(Calendar.MONTH)]
+                "$dayOfMonth $monthName"
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+    
     val paymentText = when {
         daysUntil == 0 -> stringResource(R.string.payment_today)
         daysUntil == 1 -> stringResource(R.string.payment_tomorrow)
         else -> stringResource(R.string.payment_in_days, daysUntil)
     }
     
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
-        Text(
-            text = subscriptionName,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = paymentText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = if (daysUntil <= 3) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.primary
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Logo - prioritize emoji, then logoResId (local PNG), then placeholder
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    !subscription.emoji.isNullOrEmpty() -> {
+                        // Emoji for custom subscriptions
+                        Text(
+                            text = subscription.emoji ?: "",
+                            style = MaterialTheme.typography.displaySmall
+                        )
+                    }
+                    subscription.logoResId != null -> {
+                        // Local PNG logo
+                        Image(
+                            painter = painterResource(id = subscription.logoResId),
+                            contentDescription = subscription.name,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    else -> {
+                        // Placeholder - first letter of subscription name
+                        Text(
+                            text = subscription.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
-        )
+            
+            // Content - Right side
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Subscription name (bold)
+                Text(
+                    text = subscription.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                // Payment info (secondary text)
+                Text(
+                    text = paymentText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (daysUntil <= 3) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+                
+                // Date (small, gray)
+                if (paymentDate.isNotEmpty()) {
+                    Text(
+                        text = paymentDate,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 

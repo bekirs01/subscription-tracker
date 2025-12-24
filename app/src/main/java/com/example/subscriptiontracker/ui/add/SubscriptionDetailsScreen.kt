@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
@@ -906,86 +907,135 @@ fun SubscriptionDetailsScreen(
             )
         }
         
-        // Date Picker Dialog
+        // Date Picker Dialog - Modern Design
         if (showDatePicker) {
-            AlertDialog(
-                onDismissRequest = { showDatePicker = false },
-                title = {
-                    Text(
-                        text = stringResource(R.string.start_date),
-                        style = MaterialTheme.typography.titleLarge
+            val selectedDateCalendar = remember(selectedYear, selectedMonth, selectedDay) {
+                try {
+                    Calendar.getInstance().apply {
+                        set(Calendar.YEAR, selectedYear)
+                        set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
+                        set(Calendar.DAY_OF_MONTH, selectedDay)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            val today = remember { getTodayCalendar() }
+            val isDateValidInPicker = remember(selectedDateCalendar, today) {
+                selectedDateCalendar != null && !isDateBeforeToday(selectedDateCalendar)
+            }
+            
+            // Backdrop with fade animation
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
+                    .clickable { showDatePicker = false }
+            ) {
+                // Modern Date Picker Card
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 8.dp
                     )
-                },
-                text = {
-                    DatePickerWheel(
-                        selectedYear = selectedYear,
-                        selectedMonth = selectedMonth,
-                        selectedDay = selectedDay,
-                        onYearChanged = { selectedYear = it },
-                        onMonthChanged = { 
-                            selectedMonth = it
-                            // Adjust day if needed (e.g., Feb 30 -> Feb 28)
-                            val maxDay = getMaxDaysInMonth(selectedYear, selectedMonth)
-                            if (selectedDay > maxDay) {
-                                selectedDay = maxDay
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Header with title and divider
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 20.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.start_date),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                thickness = 1.dp
+                            )
+                        }
+                        
+                        // Date Picker Wheel
+                        DatePickerWheel(
+                            selectedYear = selectedYear,
+                            selectedMonth = selectedMonth,
+                            selectedDay = selectedDay,
+                            onYearChanged = { selectedYear = it },
+                            onMonthChanged = { 
+                                selectedMonth = it
+                                // Adjust day if needed (e.g., Feb 30 -> Feb 28)
+                                val maxDay = getMaxDaysInMonth(selectedYear, selectedMonth)
+                                if (selectedDay > maxDay) {
+                                    selectedDay = maxDay
+                                }
+                            },
+                            onDayChanged = { selectedDay = it }
+                        )
+                        
+                        // Bottom buttons
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showDatePicker = false },
+                                modifier = Modifier.weight(1f),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text(stringResource(R.string.cancel))
                             }
-                        },
-                        onDayChanged = { selectedDay = it }
-                    )
-                },
-                confirmButton = {
-                    val selectedDateCalendar = remember(selectedYear, selectedMonth, selectedDay) {
-                        try {
-                            Calendar.getInstance().apply {
-                                set(Calendar.YEAR, selectedYear)
-                                set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
-                                set(Calendar.DAY_OF_MONTH, selectedDay)
-                                set(Calendar.HOUR_OF_DAY, 0)
-                                set(Calendar.MINUTE, 0)
-                                set(Calendar.SECOND, 0)
-                                set(Calendar.MILLISECOND, 0)
+                            Button(
+                                onClick = {
+                                    try {
+                                        val calendar = Calendar.getInstance().apply {
+                                            set(Calendar.YEAR, selectedYear)
+                                            set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
+                                            set(Calendar.DAY_OF_MONTH, selectedDay)
+                                            set(Calendar.HOUR_OF_DAY, 0)
+                                            set(Calendar.MINUTE, 0)
+                                            set(Calendar.SECOND, 0)
+                                            set(Calendar.MILLISECOND, 0)
+                                        }
+                                        val newStartDate = formatDateString(calendar)
+                                        // Update state explicitly to trigger recomposition
+                                        startDate = newStartDate
+                                        dateError = validateDate(newStartDate, errorDateFormat, errorDateInvalid, errorDatePast)
+                                        showDatePicker = false
+                                    } catch (e: Exception) {
+                                        dateError = errorDateInvalid
+                                    }
+                                },
+                                enabled = isDateValidInPicker,
+                                modifier = Modifier.weight(1f),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text(stringResource(R.string.save))
                             }
-                        } catch (e: Exception) {
-                            null
                         }
                     }
-                    val today = remember { getTodayCalendar() }
-                    val isDateValidInPicker = remember(selectedDateCalendar, today) {
-                        selectedDateCalendar != null && !isDateBeforeToday(selectedDateCalendar)
-                    }
-                    
-                    Button(
-                        onClick = {
-                            try {
-                                val calendar = Calendar.getInstance().apply {
-                                    set(Calendar.YEAR, selectedYear)
-                                    set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
-                                    set(Calendar.DAY_OF_MONTH, selectedDay)
-                                    set(Calendar.HOUR_OF_DAY, 0)
-                                    set(Calendar.MINUTE, 0)
-                                    set(Calendar.SECOND, 0)
-                                    set(Calendar.MILLISECOND, 0)
-                                }
-                                val newStartDate = formatDateString(calendar)
-                                // Update state explicitly to trigger recomposition
-                                startDate = newStartDate
-                                dateError = validateDate(newStartDate, errorDateFormat, errorDateInvalid, errorDatePast)
-                                showDatePicker = false
-                            } catch (e: Exception) {
-                                dateError = errorDateInvalid
-                            }
-                        },
-                        enabled = isDateValidInPicker // Enable only if date is valid
-                    ) {
-                        Text(stringResource(R.string.save))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
                 }
-            )
+            }
         }
         
         // Emoji Picker Dialog
@@ -1068,11 +1118,17 @@ fun DatePickerWheel(
     }
     val days = remember(selectedYear, selectedMonth, selectedDay) { (1..maxDay).toList() }
     
+    // Month names for display
+    val monthNames = remember {
+        arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    }
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(250.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+            .height(280.dp)
+            .padding(horizontal = 8.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Year Picker
         Column(
@@ -1081,44 +1137,64 @@ fun DatePickerWheel(
         ) {
             Text(
                 text = "Year",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 12.dp),
+                fontWeight = FontWeight.Medium
             )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(12.dp))
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentPadding = PaddingValues(vertical = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(years.size) { index ->
                         val year = years[index]
                         val isSelected = year == selectedYear
-                        // Disable years before current year
                         val isPastYear = year < currentYear
+                        
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable(enabled = !isPastYear) { 
                                     if (!isPastYear) onYearChanged(year) 
                                 }
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = year.toString(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = when {
-                                    isSelected -> MaterialTheme.colorScheme.primary
-                                    isPastYear -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            if (isSelected) {
+                                // Selected item with chip-like background
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shadowElevation = 2.dp
+                                ) {
+                                    Text(
+                                        text = year.toString(),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(vertical = 10.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
                                 }
-                            )
+                            } else {
+                                Text(
+                                    text = year.toString(),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Normal,
+                                    color = when {
+                                        isPastYear -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    },
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -1132,44 +1208,64 @@ fun DatePickerWheel(
         ) {
             Text(
                 text = "Month",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 12.dp),
+                fontWeight = FontWeight.Medium
             )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(12.dp))
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentPadding = PaddingValues(vertical = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(months.size) { index ->
                         val month = months[index]
                         val isSelected = month == selectedMonth
-                        // Disable past months if year is current year
                         val isPastMonth = selectedYear == currentYear && month < currentMonth
+                        
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable(enabled = !isPastMonth) { 
                                     if (!isPastMonth) onMonthChanged(month) 
                                 }
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = month.toString().padStart(2, '0'),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = when {
-                                    isSelected -> MaterialTheme.colorScheme.primary
-                                    isPastMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            if (isSelected) {
+                                // Selected item with chip-like background
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shadowElevation = 2.dp
+                                ) {
+                                    Text(
+                                        text = monthNames[month - 1],
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(vertical = 10.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
                                 }
-                            )
+                            } else {
+                                Text(
+                                    text = monthNames[month - 1],
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Normal,
+                                    color = when {
+                                        isPastMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    },
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -1183,28 +1279,27 @@ fun DatePickerWheel(
         ) {
             Text(
                 text = "Day",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 12.dp),
+                fontWeight = FontWeight.Medium
             )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(12.dp))
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentPadding = PaddingValues(vertical = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(days.size) { index ->
                         val day = days[index]
                         val isSelected = day == selectedDay
-                        // Disable past days if year and month are current
                         val isPastDay = selectedYear == currentYear && 
                                       selectedMonth == currentMonth && 
                                       day < currentDay
-                        // Also check if day is valid for the selected month
                         val isValidDay = day <= maxDay
                         val isDisabled = isPastDay || !isValidDay
                         
@@ -1214,19 +1309,38 @@ fun DatePickerWheel(
                                 .clickable(enabled = !isDisabled) { 
                                     if (!isDisabled) onDayChanged(day) 
                                 }
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = day.toString().padStart(2, '0'),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = when {
-                                    isSelected -> MaterialTheme.colorScheme.primary
-                                    isDisabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            if (isSelected) {
+                                // Selected item with chip-like background
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shadowElevation = 2.dp
+                                ) {
+                                    Text(
+                                        text = day.toString().padStart(2, '0'),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(vertical = 10.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
                                 }
-                            )
+                            } else {
+                                Text(
+                                    text = day.toString().padStart(2, '0'),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Normal,
+                                    color = when {
+                                        isDisabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    },
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
