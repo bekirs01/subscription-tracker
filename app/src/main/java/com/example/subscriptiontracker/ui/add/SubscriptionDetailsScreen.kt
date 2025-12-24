@@ -232,12 +232,11 @@ fun SubscriptionDetailsScreen(
     val isEditMode = originalSubscription != null
     
     // Save button enablement logic
-    // CRITICAL: Date validation must ALWAYS be enforced (both Add and Edit mode)
-    // In Edit mode, Save button is enabled only if form is valid (including date validation)
-    // In Add mode, Save button is enabled if form is valid
+    // CRITICAL: In Edit mode, Save button is ALWAYS enabled (user can save even without changes)
+    // In Add mode, Save button is enabled only if form is valid
     val isSaveButtonEnabled = if (isEditMode) {
-        // Edit mode: Enable only if form is valid (including date validation)
-        isFormValid
+        // Edit mode: Always enabled (no dirty check, no validation requirement)
+        true
     } else {
         // Add mode: Enable only if form is valid
         isFormValid
@@ -330,7 +329,7 @@ fun SubscriptionDetailsScreen(
                                 )
                             }
                         },
-                        enabled = isSaveButtonEnabled,
+                        enabled = isSaveButtonEnabled, // Edit mode: always true, Add mode: isFormValid
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(stringResource(R.string.save))
