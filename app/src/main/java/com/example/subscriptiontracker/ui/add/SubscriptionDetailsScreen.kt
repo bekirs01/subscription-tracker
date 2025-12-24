@@ -1,6 +1,7 @@
 package com.example.subscriptiontracker.ui.add
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -151,42 +152,6 @@ fun SubscriptionDetailsScreen(
     var selectedReminderDays by remember { mutableStateOf<Int>(7) } // Default: 7 days before
     var reminderExpanded by remember { mutableStateOf(false) }
     
-    // Get today's date components
-    val todayCalendar = remember { getTodayCalendar() }
-    val currentYear = remember { todayCalendar.get(Calendar.YEAR) }
-    val currentMonth = remember { todayCalendar.get(Calendar.MONTH) + 1 } // Calendar months are 0-based
-    val currentDay = remember { todayCalendar.get(Calendar.DAY_OF_MONTH) }
-    
-    // Initialize date picker state from startDate, or use today
-    var selectedYear by remember(startDate) { 
-        mutableIntStateOf(
-            parseDateString(startDate)?.get(Calendar.YEAR) ?: currentYear
-        )
-    }
-    var selectedMonth by remember(startDate) { 
-        mutableIntStateOf(
-            parseDateString(startDate)?.get(Calendar.MONTH)?.plus(1) ?: currentMonth // Calendar months are 0-based
-        )
-    }
-    var selectedDay by remember(startDate) { 
-        mutableIntStateOf(
-            parseDateString(startDate)?.get(Calendar.DAY_OF_MONTH) ?: currentDay
-        )
-    }
-    
-    // Update date picker state when startDate changes externally
-    LaunchedEffect(startDate) {
-        val parsedDate = parseDateString(startDate)
-        if (parsedDate != null) {
-            selectedYear = parsedDate.get(Calendar.YEAR)
-            selectedMonth = parsedDate.get(Calendar.MONTH) + 1 // Calendar months are 0-based
-            selectedDay = parsedDate.get(Calendar.DAY_OF_MONTH)
-        } else {
-            selectedYear = currentYear
-            selectedMonth = currentMonth
-            selectedDay = currentDay
-        }
-    }
     
     // Validation states
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -638,17 +603,6 @@ fun SubscriptionDetailsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { 
-                        // Initialize picker with current date or today (whichever is later)
-                        val today = getTodayCalendar()
-                        val parsedDate = parseDateString(startDate)
-                        val dateToUse = if (parsedDate != null && !isDateBeforeToday(parsedDate)) {
-                            parsedDate
-                        } else {
-                            today
-                        }
-                        selectedYear = dateToUse.get(Calendar.YEAR)
-                        selectedMonth = dateToUse.get(Calendar.MONTH) + 1 // Calendar months are 0-based
-                        selectedDay = dateToUse.get(Calendar.DAY_OF_MONTH)
                         showDatePicker = true
                     },
                 readOnly = true,
@@ -659,16 +613,6 @@ fun SubscriptionDetailsScreen(
                 shape = MaterialTheme.shapes.medium,
                 trailingIcon = {
                     IconButton(onClick = { 
-                        val today = getTodayCalendar()
-                        val parsedDate = parseDateString(startDate)
-                        val dateToUse = if (parsedDate != null && !isDateBeforeToday(parsedDate)) {
-                            parsedDate
-                        } else {
-                            today
-                        }
-                        selectedYear = dateToUse.get(Calendar.YEAR)
-                        selectedMonth = dateToUse.get(Calendar.MONTH) + 1 // Calendar months are 0-based
-                        selectedDay = dateToUse.get(Calendar.DAY_OF_MONTH)
                         showDatePicker = true
                     }) {
                         Icon(
@@ -907,135 +851,17 @@ fun SubscriptionDetailsScreen(
             )
         }
         
-        // Date Picker Dialog - Modern Design
+        // Modern Date Picker Modal - Centered
         if (showDatePicker) {
-            val selectedDateCalendar = remember(selectedYear, selectedMonth, selectedDay) {
-                try {
-                    Calendar.getInstance().apply {
-                        set(Calendar.YEAR, selectedYear)
-                        set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
-                        set(Calendar.DAY_OF_MONTH, selectedDay)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                } catch (e: Exception) {
-                    null
-                }
-            }
-            val today = remember { getTodayCalendar() }
-            val isDateValidInPicker = remember(selectedDateCalendar, today) {
-                selectedDateCalendar != null && !isDateBeforeToday(selectedDateCalendar)
-            }
-            
-            // Backdrop with fade animation
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
-                    .clickable { showDatePicker = false }
-            ) {
-                // Modern Date Picker Card
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 8.dp
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Header with title and divider
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 20.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.start_date),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                thickness = 1.dp
-                            )
-                        }
-                        
-                        // Date Picker Wheel
-                        DatePickerWheel(
-                            selectedYear = selectedYear,
-                            selectedMonth = selectedMonth,
-                            selectedDay = selectedDay,
-                            onYearChanged = { selectedYear = it },
-                            onMonthChanged = { 
-                                selectedMonth = it
-                                // Adjust day if needed (e.g., Feb 30 -> Feb 28)
-                                val maxDay = getMaxDaysInMonth(selectedYear, selectedMonth)
-                                if (selectedDay > maxDay) {
-                                    selectedDay = maxDay
-                                }
-                            },
-                            onDayChanged = { selectedDay = it }
-                        )
-                        
-                        // Bottom buttons
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { showDatePicker = false },
-                                modifier = Modifier.weight(1f),
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(R.string.cancel))
-                            }
-                            Button(
-                                onClick = {
-                                    try {
-                                        val calendar = Calendar.getInstance().apply {
-                                            set(Calendar.YEAR, selectedYear)
-                                            set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
-                                            set(Calendar.DAY_OF_MONTH, selectedDay)
-                                            set(Calendar.HOUR_OF_DAY, 0)
-                                            set(Calendar.MINUTE, 0)
-                                            set(Calendar.SECOND, 0)
-                                            set(Calendar.MILLISECOND, 0)
-                                        }
-                                        val newStartDate = formatDateString(calendar)
-                                        // Update state explicitly to trigger recomposition
-                                        startDate = newStartDate
-                                        dateError = validateDate(newStartDate, errorDateFormat, errorDateInvalid, errorDatePast)
-                                        showDatePicker = false
-                                    } catch (e: Exception) {
-                                        dateError = errorDateInvalid
-                                    }
-                                },
-                                enabled = isDateValidInPicker,
-                                modifier = Modifier.weight(1f),
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(R.string.save))
-                            }
-                        }
-                    }
-                }
-            }
+            ModernDatePickerModal(
+                initialDate = startDate,
+                onDateSelected = { newDate ->
+                    startDate = newDate
+                    dateError = validateDate(newDate, errorDateFormat, errorDateInvalid, errorDatePast)
+                    showDatePicker = false
+                },
+                onDismiss = { showDatePicker = false }
+            )
         }
         
         // Emoji Picker Dialog
@@ -1087,19 +913,170 @@ fun SubscriptionDetailsScreen(
 }
 
 @Composable
-fun DatePickerWheel(
+fun ModernDatePickerModal(
+    initialDate: String,
+    onDateSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val today = remember { getTodayCalendar() }
+    val currentYear = remember { today.get(Calendar.YEAR) }
+    val currentMonth = remember { today.get(Calendar.MONTH) + 1 }
+    val currentDay = remember { today.get(Calendar.DAY_OF_MONTH) }
+    
+    // Initialize picker state from initialDate or today
+    val initialCalendar = remember(initialDate) {
+        parseDateString(initialDate) ?: today
+    }
+    
+    var selectedYear by remember { mutableIntStateOf(initialCalendar.get(Calendar.YEAR)) }
+    var selectedMonth by remember { mutableIntStateOf(initialCalendar.get(Calendar.MONTH) + 1) }
+    var selectedDay by remember { mutableIntStateOf(initialCalendar.get(Calendar.DAY_OF_MONTH)) }
+    
+    // Recalculate when month/year changes to adjust day if needed
+    LaunchedEffect(selectedYear, selectedMonth) {
+        val maxDay = getMaxDaysInMonth(selectedYear, selectedMonth)
+        if (selectedDay > maxDay) {
+            selectedDay = maxDay
+        }
+    }
+    
+    // Validate selected date
+    val selectedDateCalendar = remember(selectedYear, selectedMonth, selectedDay) {
+        try {
+            Calendar.getInstance().apply {
+                set(Calendar.YEAR, selectedYear)
+                set(Calendar.MONTH, selectedMonth - 1)
+                set(Calendar.DAY_OF_MONTH, selectedDay)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    val isDateValid = remember(selectedDateCalendar, today) {
+        selectedDateCalendar != null && !isDateBeforeToday(selectedDateCalendar)
+    }
+    
+    // Backdrop
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
+            .clickable { onDismiss() }
+    ) {
+        // Centered Modal Card
+        Card(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth(0.9f)
+                .padding(16.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 8.dp
+            )
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Header
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.start_date),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        thickness = 1.dp
+                    )
+                }
+                
+                // Date Picker Wheel
+                DatePickerWheelContent(
+                    selectedYear = selectedYear,
+                    selectedMonth = selectedMonth,
+                    selectedDay = selectedDay,
+                    currentYear = currentYear,
+                    currentMonth = currentMonth,
+                    currentDay = currentDay,
+                    onYearChanged = { selectedYear = it },
+                    onMonthChanged = { selectedMonth = it },
+                    onDayChanged = { selectedDay = it }
+                )
+                
+                // Error message if date is invalid
+                if (!isDateValid && selectedDateCalendar != null) {
+                    Text(
+                        text = stringResource(R.string.error_date_past),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                
+                // Bottom buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                    Button(
+                        onClick = {
+                            if (isDateValid && selectedDateCalendar != null) {
+                                val formattedDate = formatDateString(selectedDateCalendar)
+                                onDateSelected(formattedDate)
+                            }
+                        },
+                        enabled = isDateValid,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DatePickerWheelContent(
     selectedYear: Int,
     selectedMonth: Int,
     selectedDay: Int,
+    currentYear: Int,
+    currentMonth: Int,
+    currentDay: Int,
     onYearChanged: (Int) -> Unit,
     onMonthChanged: (Int) -> Unit,
     onDayChanged: (Int) -> Unit
 ) {
-    val today = remember { getTodayCalendar() }
-    val currentYear = remember { today.get(Calendar.YEAR) }
-    val currentMonth = remember { today.get(Calendar.MONTH) + 1 } // Calendar months are 0-based
-    val currentDay = remember { today.get(Calendar.DAY_OF_MONTH) }
-    
     // Only show current year and future years
     val years = remember(currentYear) { (currentYear..currentYear + 10).toList() }
     
@@ -1167,7 +1144,6 @@ fun DatePickerWheel(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
-                                // Selected item with chip-like background
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
@@ -1180,7 +1156,7 @@ fun DatePickerWheel(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.padding(vertical = 10.dp),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             } else {
@@ -1192,7 +1168,7 @@ fun DatePickerWheel(
                                         isPastYear -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                                         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     },
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
@@ -1238,7 +1214,6 @@ fun DatePickerWheel(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
-                                // Selected item with chip-like background
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
@@ -1251,7 +1226,7 @@ fun DatePickerWheel(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.padding(vertical = 10.dp),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             } else {
@@ -1263,7 +1238,7 @@ fun DatePickerWheel(
                                         isPastMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                                         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     },
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
@@ -1313,7 +1288,6 @@ fun DatePickerWheel(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
-                                // Selected item with chip-like background
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
@@ -1326,7 +1300,7 @@ fun DatePickerWheel(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.padding(vertical = 10.dp),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             } else {
@@ -1338,7 +1312,7 @@ fun DatePickerWheel(
                                         isDisabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                                         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     },
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
