@@ -27,9 +27,9 @@ import com.example.subscriptiontracker.SubscriptionItem
 import com.example.subscriptiontracker.AddSubscriptionDialog
 import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 enum class HomeTab {
     SUBSCRIPTIONS, BUDGET
@@ -341,21 +341,55 @@ fun SegmentedButton(
 
 @Composable
 fun UpcomingPaymentsSection(subscriptions: List<Subscription>) {
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    // Helper function to parse date string to Calendar
+    fun parseDateString(dateString: String): Calendar? {
+        return try {
+            if (dateString.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                val parts = dateString.split("-")
+                val year = parts[0].toInt()
+                val month = parts[1].toInt() - 1 // Calendar months are 0-based
+                val day = parts[2].toInt()
+                Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, day)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    // Helper function to calculate days between two calendars
+    fun daysBetween(cal1: Calendar, cal2: Calendar): Int {
+        val diff = cal2.timeInMillis - cal1.timeInMillis
+        return (diff / (1000 * 60 * 60 * 24)).toInt()
+    }
     
     // Calculate upcoming payments for each subscription
     // Recalculate when subscriptions change
     val upcomingPayments = remember(subscriptions) {
-        val currentDate = LocalDate.now()
+        val currentDate = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
         subscriptions.mapNotNull { subscription ->
             try {
-                val startDate = LocalDate.parse(subscription.renewalDate, formatter)
+                val startDate = parseDateString(subscription.renewalDate) ?: return@mapNotNull null
                 
                 // Calculate next payment date
                 val nextPaymentDate = calculateNextPaymentDate(startDate, subscription.period, currentDate)
                 
                 // Calculate days until payment
-                val daysUntil = ChronoUnit.DAYS.between(currentDate, nextPaymentDate).toInt()
+                val daysUntil = daysBetween(currentDate, nextPaymentDate)
                 
                 // Only include payments within 30 days
                 if (daysUntil >= 0 && daysUntil <= 30) {
@@ -438,29 +472,30 @@ fun UpcomingPaymentRow(
  * If start date is in the future, use that date.
  */
 fun calculateNextPaymentDate(
-    startDate: LocalDate,
+    startDate: Calendar,
     period: Period,
-    currentDate: LocalDate
-): LocalDate {
+    currentDate: Calendar
+): Calendar {
+    // Create a copy of startDate to avoid modifying the original
+    val nextDate = startDate.clone() as Calendar
+    
     // If start date is in the future, return it
-    if (startDate.isAfter(currentDate)) {
-        return startDate
+    if (nextDate.after(currentDate)) {
+        return nextDate
     }
     
     // If start date is today or in the past, calculate next occurrence
-    var nextDate = startDate
-    
     when (period) {
         Period.MONTHLY -> {
             // Add months until we get a date in the future
-            while (!nextDate.isAfter(currentDate)) {
-                nextDate = nextDate.plusMonths(1)
+            while (!nextDate.after(currentDate)) {
+                nextDate.add(Calendar.MONTH, 1)
             }
         }
         Period.YEARLY -> {
             // Add years until we get a date in the future
-            while (!nextDate.isAfter(currentDate)) {
-                nextDate = nextDate.plusYears(1)
+            while (!nextDate.after(currentDate)) {
+                nextDate.add(Calendar.YEAR, 1)
             }
         }
     }

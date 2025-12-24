@@ -1,7 +1,7 @@
 package com.example.subscriptiontracker.utils
 
 import com.example.subscriptiontracker.Period
-import java.time.LocalDate
+import java.util.Calendar
 
 object ActionParser {
     
@@ -128,7 +128,7 @@ object ActionParser {
         if (match2 != null) {
             val day = match2.groupValues[1].padStart(2, '0')
             val monthName = match2.groupValues[2].lowercase()
-            val year = match2.groupValues[3].ifBlank { LocalDate.now().year.toString() }
+            val year = match2.groupValues[3].ifBlank { Calendar.getInstance().get(Calendar.YEAR).toString() }
             val month = monthMap[monthName] ?: return ""
             
             return "$year-$month-$day"

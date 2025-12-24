@@ -67,6 +67,7 @@
     <string name="error_price_invalid">Price must be a valid number</string>
     <string name="error_date_format">Date must be in format yyyy-MM-dd</string>
     <string name="error_date_invalid">Please enter a valid date</string>
+    <string name="error_date_past">Başlangıç tarihi bugünden önce olamaz.</string>
     
     <!-- Settings Sections -->
     <string name="section_appearance">Appearance</string>

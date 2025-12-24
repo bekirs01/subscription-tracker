@@ -7,9 +7,9 @@ import android.content.Intent
 import android.os.Build
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.receiver.ReminderReceiver
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 object SubscriptionReminderManager {
     private const val REMINDER_HOUR = 9 // 09:00 local time
@@ -34,14 +34,30 @@ object SubscriptionReminderManager {
         
         // Parse renewal date
         val renewalDate = try {
-            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-            LocalDate.parse(subscription.renewalDate, formatter)
+            if (subscription.renewalDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                val parts = subscription.renewalDate.split("-")
+                val year = parts[0].toInt()
+                val month = parts[1].toInt() - 1 // Calendar months are 0-based
+                val day = parts[2].toInt()
+                Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, day)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+            } else {
+                return // Invalid date, skip reminders
+            }
         } catch (e: Exception) {
             return // Invalid date, skip reminders
         }
         
         REMINDER_DAYS.forEachIndexed { index, daysBefore ->
-            val reminderDate = renewalDate.minusDays(daysBefore.toLong())
+            val reminderDate = renewalDate.clone() as Calendar
+            reminderDate.add(Calendar.DAY_OF_MONTH, -daysBefore)
             val reminderTime = getReminderTime(reminderDate)
             
             // Only schedule if reminder date is in the future
@@ -110,16 +126,12 @@ object SubscriptionReminderManager {
     /**
      * Get reminder time in milliseconds for a given date at 09:00
      */
-    private fun getReminderTime(date: LocalDate): Long {
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.YEAR, date.year)
-            set(Calendar.MONTH, date.monthValue - 1) // Calendar months are 0-based
-            set(Calendar.DAY_OF_MONTH, date.dayOfMonth)
-            set(Calendar.HOUR_OF_DAY, REMINDER_HOUR)
-            set(Calendar.MINUTE, REMINDER_MINUTE)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
+    private fun getReminderTime(date: Calendar): Long {
+        val calendar = date.clone() as Calendar
+        calendar.set(Calendar.HOUR_OF_DAY, REMINDER_HOUR)
+        calendar.set(Calendar.MINUTE, REMINDER_MINUTE)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
         return calendar.timeInMillis
     }
 }

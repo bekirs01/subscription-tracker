@@ -34,10 +34,9 @@ import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.PeriodManager
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.YearMonth
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 // Emoji list for custom subscriptions
 private val emojiList = listOf(
@@ -52,6 +51,59 @@ private val emojiList = listOf(
     "🍕", "🍟", "🍔", "🌭", "🍿", "🧂", "🥤", "🍷", "🍺", "☕",
     "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯"
 )
+
+// Helper functions for Calendar-based date operations
+private fun getTodayCalendar(): Calendar {
+    return Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+}
+
+private fun parseDateString(dateString: String): Calendar? {
+    return try {
+        if (dateString.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+            val parts = dateString.split("-")
+            val year = parts[0].toInt()
+            val month = parts[1].toInt() - 1 // Calendar months are 0-based
+            val day = parts[2].toInt()
+            Calendar.getInstance().apply {
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, month)
+                set(Calendar.DAY_OF_MONTH, day)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun formatDateString(calendar: Calendar): String {
+    val year = calendar.get(Calendar.YEAR)
+    val month = calendar.get(Calendar.MONTH) + 1 // Calendar months are 0-based
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+    return String.format(Locale.US, "%04d-%02d-%02d", year, month, day)
+}
+
+private fun isDateBeforeToday(calendar: Calendar): Boolean {
+    val today = getTodayCalendar()
+    return calendar.before(today)
+}
+
+private fun getMaxDaysInMonth(year: Int, month: Int): Int {
+    val calendar = Calendar.getInstance()
+    calendar.set(Calendar.YEAR, year)
+    calendar.set(Calendar.MONTH, month - 1) // Calendar months are 0-based
+    return calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,40 +150,41 @@ fun SubscriptionDetailsScreen(
     var selectedReminderDays by remember { mutableStateOf<Int>(7) } // Default: 7 days before
     var reminderExpanded by remember { mutableStateOf(false) }
     
-    // Parse current date or use today
-    val currentDate = remember(startDate) {
-        try {
-            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
-                val parts = startDate.split("-")
-                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-            } else {
-                LocalDate.now()
-            }
-        } catch (e: Exception) {
-            LocalDate.now()
-        }
-    }
+    // Get today's date components
+    val todayCalendar = remember { getTodayCalendar() }
+    val currentYear = remember { todayCalendar.get(Calendar.YEAR) }
+    val currentMonth = remember { todayCalendar.get(Calendar.MONTH) + 1 } // Calendar months are 0-based
+    val currentDay = remember { todayCalendar.get(Calendar.DAY_OF_MONTH) }
     
-    // Initialize date picker state from currentDate, and update when startDate changes
-    var selectedYear by remember(startDate) { mutableIntStateOf(currentDate.year) }
-    var selectedMonth by remember(startDate) { mutableIntStateOf(currentDate.monthValue) }
-    var selectedDay by remember(startDate) { mutableIntStateOf(currentDate.dayOfMonth) }
+    // Initialize date picker state from startDate, or use today
+    var selectedYear by remember(startDate) { 
+        mutableIntStateOf(
+            parseDateString(startDate)?.get(Calendar.YEAR) ?: currentYear
+        )
+    }
+    var selectedMonth by remember(startDate) { 
+        mutableIntStateOf(
+            parseDateString(startDate)?.get(Calendar.MONTH)?.plus(1) ?: currentMonth // Calendar months are 0-based
+        )
+    }
+    var selectedDay by remember(startDate) { 
+        mutableIntStateOf(
+            parseDateString(startDate)?.get(Calendar.DAY_OF_MONTH) ?: currentDay
+        )
+    }
     
     // Update date picker state when startDate changes externally
     LaunchedEffect(startDate) {
-        val date = try {
-            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
-                val parts = startDate.split("-")
-                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-            } else {
-                LocalDate.now()
-            }
-        } catch (e: Exception) {
-            LocalDate.now()
+        val parsedDate = parseDateString(startDate)
+        if (parsedDate != null) {
+            selectedYear = parsedDate.get(Calendar.YEAR)
+            selectedMonth = parsedDate.get(Calendar.MONTH) + 1 // Calendar months are 0-based
+            selectedDay = parsedDate.get(Calendar.DAY_OF_MONTH)
+        } else {
+            selectedYear = currentYear
+            selectedMonth = currentMonth
+            selectedDay = currentDay
         }
-        selectedYear = date.year
-        selectedMonth = date.monthValue
-        selectedDay = date.dayOfMonth
     }
     
     // Validation states
@@ -144,6 +197,59 @@ fun SubscriptionDetailsScreen(
     val errorPriceInvalid = stringResource(R.string.error_price_invalid)
     val errorDateFormat = stringResource(R.string.error_date_format)
     val errorDateInvalid = stringResource(R.string.error_date_invalid)
+    val errorDatePast = stringResource(R.string.error_date_past)
+    
+    // Validation functions (must be defined before use)
+    fun validateDate(input: String, formatError: String, invalidError: String, pastDateError: String): String? {
+        return when {
+            input.isBlank() -> null
+            !input.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$")) -> formatError
+            else -> {
+                try {
+                    val parsedDate = parseDateString(input)
+                    if (parsedDate == null) {
+                        invalidError
+                    } else {
+                        // Check if date is in the past
+                        if (isDateBeforeToday(parsedDate)) {
+                            pastDateError
+                        } else {
+                            val year = parsedDate.get(Calendar.YEAR)
+                            val month = parsedDate.get(Calendar.MONTH) + 1
+                            val day = parsedDate.get(Calendar.DAY_OF_MONTH)
+                            if (month !in 1..12 || day !in 1..31 || year < 2020) {
+                                invalidError
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    invalidError
+                }
+            }
+        }
+    }
+    
+    // Compute date validation state (reactive to startDate changes)
+    // MUST be defined before isFormValid
+    val isDateValid = remember(startDate) {
+        if (startDate.isBlank()) {
+            false
+        } else {
+            val error = validateDate(startDate, errorDateFormat, errorDateInvalid, errorDatePast)
+            error == null
+        }
+    }
+    
+    // Update dateError when startDate changes
+    LaunchedEffect(startDate) {
+        if (startDate.isNotBlank()) {
+            dateError = validateDate(startDate, errorDateFormat, errorDateInvalid, errorDatePast)
+        } else {
+            dateError = null
+        }
+    }
     
     // Form validity
     val logoId = selectedLogoResId
@@ -153,17 +259,19 @@ fun SubscriptionDetailsScreen(
                       nameError == null && 
                       priceError == null && 
                       dateError == null &&
+                      isDateValid && // Date must be today or future
                       (predefinedService != null || selectedEmoji != null) // Emoji required for custom
     
     // Determine if we're in Edit mode
     val isEditMode = originalSubscription != null
     
     // Save button enablement logic
-    // CRITICAL: In Edit mode, Save button is ALWAYS enabled (override dirty check)
-    // In Add mode, use form validation
+    // CRITICAL: Date validation must ALWAYS be enforced (both Add and Edit mode)
+    // In Edit mode, Save button is enabled only if form is valid (including date validation)
+    // In Add mode, Save button is enabled if form is valid
     val isSaveButtonEnabled = if (isEditMode) {
-        // Edit mode: Always enabled (ignore dirty check completely)
-        true
+        // Edit mode: Enable only if form is valid (including date validation)
+        isFormValid
     } else {
         // Add mode: Enable only if form is valid
         isFormValid
@@ -184,26 +292,6 @@ fun SubscriptionDetailsScreen(
             !input.matches(Regex("^\\d+(\\.\\d{1,2})?$")) -> errorMsg
             input.toDoubleOrNull() == null -> errorMsg
             else -> null
-        }
-    }
-    
-    fun validateDate(input: String, formatError: String, invalidError: String): String? {
-        return when {
-            input.isBlank() -> null
-            !input.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$")) -> formatError
-            else -> {
-                try {
-                    val parts = input.split("-")
-                    val year = parts[0].toInt()
-                    val month = parts[1].toInt()
-                    val day = parts[2].toInt()
-                    if (month !in 1..12 || day !in 1..31 || year < 2020) {
-                        invalidError
-                    } else null
-                } catch (e: Exception) {
-                    invalidError
-                }
-            }
         }
     }
     
@@ -549,21 +637,18 @@ fun SubscriptionDetailsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { 
-                        // Initialize picker with current date
-                        val date = try {
-                            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
-                                val parts = startDate.split("-")
-                                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-                            } else {
-                                LocalDate.now()
-                            }
-                        } catch (e: Exception) {
-                            LocalDate.now()
+                        // Initialize picker with current date or today (whichever is later)
+                        val today = getTodayCalendar()
+                        val parsedDate = parseDateString(startDate)
+                        val dateToUse = if (parsedDate != null && !isDateBeforeToday(parsedDate)) {
+                            parsedDate
+                        } else {
+                            today
                         }
-                        selectedYear = date.year
-                        selectedMonth = date.monthValue
-                        selectedDay = date.dayOfMonth
-                        showDatePicker = true 
+                        selectedYear = dateToUse.get(Calendar.YEAR)
+                        selectedMonth = dateToUse.get(Calendar.MONTH) + 1 // Calendar months are 0-based
+                        selectedDay = dateToUse.get(Calendar.DAY_OF_MONTH)
+                        showDatePicker = true
                     },
                 readOnly = true,
                 singleLine = true,
@@ -573,20 +658,17 @@ fun SubscriptionDetailsScreen(
                 shape = MaterialTheme.shapes.medium,
                 trailingIcon = {
                     IconButton(onClick = { 
-                        val date = try {
-                            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
-                                val parts = startDate.split("-")
-                                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-                            } else {
-                                LocalDate.now()
-                            }
-                        } catch (e: Exception) {
-                            LocalDate.now()
+                        val today = getTodayCalendar()
+                        val parsedDate = parseDateString(startDate)
+                        val dateToUse = if (parsedDate != null && !isDateBeforeToday(parsedDate)) {
+                            parsedDate
+                        } else {
+                            today
                         }
-                        selectedYear = date.year
-                        selectedMonth = date.monthValue
-                        selectedDay = date.dayOfMonth
-                        showDatePicker = true 
+                        selectedYear = dateToUse.get(Calendar.YEAR)
+                        selectedMonth = dateToUse.get(Calendar.MONTH) + 1 // Calendar months are 0-based
+                        selectedDay = dateToUse.get(Calendar.DAY_OF_MONTH)
+                        showDatePicker = true
                     }) {
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
@@ -843,7 +925,7 @@ fun SubscriptionDetailsScreen(
                         onMonthChanged = { 
                             selectedMonth = it
                             // Adjust day if needed (e.g., Feb 30 -> Feb 28)
-                            val maxDay = YearMonth.of(selectedYear, selectedMonth).lengthOfMonth()
+                            val maxDay = getMaxDaysInMonth(selectedYear, selectedMonth)
                             if (selectedDay > maxDay) {
                                 selectedDay = maxDay
                             }
@@ -852,20 +934,48 @@ fun SubscriptionDetailsScreen(
                     )
                 },
                 confirmButton = {
+                    val selectedDateCalendar = remember(selectedYear, selectedMonth, selectedDay) {
+                        try {
+                            Calendar.getInstance().apply {
+                                set(Calendar.YEAR, selectedYear)
+                                set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
+                                set(Calendar.DAY_OF_MONTH, selectedDay)
+                                set(Calendar.HOUR_OF_DAY, 0)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    val today = remember { getTodayCalendar() }
+                    val isDateValidInPicker = remember(selectedDateCalendar, today) {
+                        selectedDateCalendar != null && !isDateBeforeToday(selectedDateCalendar)
+                    }
+                    
                     Button(
                         onClick = {
                             try {
-                                val date = LocalDate.of(selectedYear, selectedMonth, selectedDay)
-                                val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                                val newStartDate = date.format(formatter)
+                                val calendar = Calendar.getInstance().apply {
+                                    set(Calendar.YEAR, selectedYear)
+                                    set(Calendar.MONTH, selectedMonth - 1) // Calendar months are 0-based
+                                    set(Calendar.DAY_OF_MONTH, selectedDay)
+                                    set(Calendar.HOUR_OF_DAY, 0)
+                                    set(Calendar.MINUTE, 0)
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }
+                                val newStartDate = formatDateString(calendar)
                                 // Update state explicitly to trigger recomposition
                                 startDate = newStartDate
-                                dateError = validateDate(newStartDate, errorDateFormat, errorDateInvalid)
+                                dateError = validateDate(newStartDate, errorDateFormat, errorDateInvalid, errorDatePast)
                                 showDatePicker = false
                             } catch (e: Exception) {
                                 dateError = errorDateInvalid
                             }
-                        }
+                        },
+                        enabled = isDateValidInPicker // Enable only if date is valid
                     ) {
                         Text(stringResource(R.string.save))
                     }
@@ -935,13 +1045,28 @@ fun DatePickerWheel(
     onMonthChanged: (Int) -> Unit,
     onDayChanged: (Int) -> Unit
 ) {
-    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-    val years = (2020..currentYear + 10).toList()
-    val months = (1..12).toList()
+    val today = remember { getTodayCalendar() }
+    val currentYear = remember { today.get(Calendar.YEAR) }
+    val currentMonth = remember { today.get(Calendar.MONTH) + 1 } // Calendar months are 0-based
+    val currentDay = remember { today.get(Calendar.DAY_OF_MONTH) }
+    
+    // Only show current year and future years
+    val years = remember(currentYear) { (currentYear..currentYear + 10).toList() }
+    
+    // Only show current month and future months if year is current year
+    val months = remember(selectedYear, currentYear, currentMonth) {
+        if (selectedYear == currentYear) {
+            (currentMonth..12).toList()
+        } else {
+            (1..12).toList()
+        }
+    }
     
     // Calculate max days for selected month/year
-    val maxDay = YearMonth.of(selectedYear, selectedMonth).lengthOfMonth()
-    val days = remember(selectedYear, selectedMonth) { (1..maxDay).toList() }
+    val maxDay = remember(selectedYear, selectedMonth) { 
+        getMaxDaysInMonth(selectedYear, selectedMonth)
+    }
+    val days = remember(selectedYear, selectedMonth, selectedDay) { (1..maxDay).toList() }
     
     Row(
         modifier = Modifier
@@ -973,10 +1098,14 @@ fun DatePickerWheel(
                     items(years.size) { index ->
                         val year = years[index]
                         val isSelected = year == selectedYear
+                        // Disable years before current year
+                        val isPastYear = year < currentYear
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onYearChanged(year) }
+                                .clickable(enabled = !isPastYear) { 
+                                    if (!isPastYear) onYearChanged(year) 
+                                }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -984,10 +1113,10 @@ fun DatePickerWheel(
                                 text = year.toString(),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.primary
+                                    isPastYear -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
                         }
@@ -1020,10 +1149,14 @@ fun DatePickerWheel(
                     items(months.size) { index ->
                         val month = months[index]
                         val isSelected = month == selectedMonth
+                        // Disable past months if year is current year
+                        val isPastMonth = selectedYear == currentYear && month < currentMonth
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onMonthChanged(month) }
+                                .clickable(enabled = !isPastMonth) { 
+                                    if (!isPastMonth) onMonthChanged(month) 
+                                }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1031,10 +1164,10 @@ fun DatePickerWheel(
                                 text = month.toString().padStart(2, '0'),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.primary
+                                    isPastMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
                         }
@@ -1067,10 +1200,20 @@ fun DatePickerWheel(
                     items(days.size) { index ->
                         val day = days[index]
                         val isSelected = day == selectedDay
+                        // Disable past days if year and month are current
+                        val isPastDay = selectedYear == currentYear && 
+                                      selectedMonth == currentMonth && 
+                                      day < currentDay
+                        // Also check if day is valid for the selected month
+                        val isValidDay = day <= maxDay
+                        val isDisabled = isPastDay || !isValidDay
+                        
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onDayChanged(day) }
+                                .clickable(enabled = !isDisabled) { 
+                                    if (!isDisabled) onDayChanged(day) 
+                                }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1078,10 +1221,10 @@ fun DatePickerWheel(
                                 text = day.toString().padStart(2, '0'),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.primary
+                                    isDisabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
                         }
@@ -1091,4 +1234,3 @@ fun DatePickerWheel(
         }
     }
 }
-
