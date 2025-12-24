@@ -7,14 +7,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.subscriptiontracker.Subscription
-import com.example.subscriptiontracker.PopularService
 import com.example.subscriptiontracker.ui.chat.ChatScreen
 import com.example.subscriptiontracker.ui.home.HomeScreen
 import com.example.subscriptiontracker.ui.premium.PremiumScreen
 import com.example.subscriptiontracker.ui.settings.SettingsScreen
 import com.example.subscriptiontracker.ui.add.PopularServicesScreen
-import com.example.subscriptiontracker.ui.add.SubscriptionSetupScreen
-import com.example.subscriptiontracker.data.PopularServices
+import com.example.subscriptiontracker.ui.add.SubscriptionDetailsScreen
+import com.example.subscriptiontracker.ui.add.ServiceItem
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -22,8 +21,9 @@ sealed class Screen(val route: String) {
     object Premium : Screen("premium")
     object Chat : Screen("chat")
     object PopularServices : Screen("popular_services")
-    object SubscriptionSetup : Screen("subscription_setup/{serviceId}") {
-        fun createRoute(serviceId: String) = "subscription_setup/$serviceId"
+    object SubscriptionDetails : Screen("subscription_details")
+    object EditSubscription : Screen("edit_subscription/{subscriptionId}") {
+        fun createRoute(subscriptionId: Int) = "edit_subscription/$subscriptionId"
     }
 }
 
@@ -37,6 +37,9 @@ fun NavGraph(
     var subscriptions by remember { mutableStateOf<List<Subscription>>(emptyList()) }
     var nextId by remember { mutableIntStateOf(1) }
     
+    // Selected service state for navigation
+    var selectedService by remember { mutableStateOf<ServiceItem?>(null) }
+    
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route
@@ -47,7 +50,13 @@ fun NavGraph(
                 onSubscriptionsChanged = { subscriptions = it },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                 onNavigateToChat = { navController.navigate(Screen.Chat.route) },
-                onAddSubscription = { navController.navigate(Screen.PopularServices.route) }
+                onAddSubscription = { navController.navigate(Screen.PopularServices.route) },
+                onEditSubscription = { subscriptionId ->
+                    navController.navigate(Screen.EditSubscription.createRoute(subscriptionId))
+                },
+                onDeleteSubscription = { subscriptionId ->
+                    subscriptions = subscriptions.filter { it.id != subscriptionId }
+                }
             )
         }
         
@@ -87,26 +96,61 @@ fun NavGraph(
             PopularServicesScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onServiceSelected = { service ->
-                    navController.navigate(Screen.SubscriptionSetup.createRoute(service.id))
+                    // Set selected service and navigate
+                    selectedService = service
+                    navController.navigate(Screen.SubscriptionDetails.route)
+                },
+                onCustomSelected = {
+                    // Clear selected service for custom
+                    selectedService = null
+                    navController.navigate(Screen.SubscriptionDetails.route)
+                }
+            )
+        }
+        
+        composable(Screen.SubscriptionDetails.route) {
+            SubscriptionDetailsScreen(
+                predefinedService = selectedService,
+                existingSubscription = null,
+                onNavigateBack = { 
+                    selectedService = null
+                    navController.popBackStack() 
+                },
+                onSave = { subscription ->
+                    subscriptions = subscriptions + subscription.copy(id = nextId)
+                    nextId++
+                    selectedService = null
+                    // Navigate directly to Home
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                    }
                 }
             )
         }
         
         composable(
-            route = Screen.SubscriptionSetup.route,
-            arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
+            route = Screen.EditSubscription.route,
+            arguments = listOf(navArgument("subscriptionId") { type = NavType.IntType })
         ) { backStackEntry ->
-            val serviceId = backStackEntry.arguments?.getString("serviceId") ?: ""
-            val service = PopularServices.top100.find { it.id == serviceId }
-                ?: PopularServices.top100.first()
+            val subscriptionId = backStackEntry.arguments?.getInt("subscriptionId") ?: 0
+            val subscriptionToEdit = subscriptions.find { it.id == subscriptionId }
             
-            SubscriptionSetupScreen(
-                service = service,
+            SubscriptionDetailsScreen(
+                predefinedService = null,
+                existingSubscription = subscriptionToEdit,
                 onNavigateBack = { navController.popBackStack() },
-                onSave = { subscription ->
-                    subscriptions = subscriptions + subscription.copy(id = nextId)
-                    nextId++
-                    navController.popBackStack(Screen.Home.route, inclusive = false)
+                onSave = { updatedSubscription ->
+                    subscriptions = subscriptions.map { 
+                        if (it.id == subscriptionId) {
+                            updatedSubscription.copy(id = subscriptionId)
+                        } else {
+                            it
+                        }
+                    }
+                    // Navigate back to Home
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                    }
                 }
             )
         }

@@ -17,6 +17,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.PopularService
 import com.example.subscriptiontracker.Subscription
@@ -24,8 +26,6 @@ import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.PeriodManager
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +190,12 @@ fun SubscriptionSetupScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     AsyncImage(
-                        model = service.logoUrl,
+                        model = ImageRequest.Builder(context)
+                            .data(service.logoUrl)
+                            .decoderFactory(SvgDecoder.Factory())
+                            .crossfade(true)
+                            .allowHardware(false)
+                            .build(),
                         contentDescription = service.name,
                         modifier = Modifier
                             .fillMaxSize()

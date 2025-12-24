@@ -6,7 +6,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,10 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import androidx.navigation.compose.rememberNavController
 import com.example.subscriptiontracker.navigation.NavGraph
 import com.example.subscriptiontracker.ui.theme.SubscriptionTrackerTheme
@@ -39,7 +45,10 @@ data class Subscription(
     val period: Period,
     val renewalDate: String,
     val logoUrl: String? = null,
-    val currency: String = "TRY"
+    val logoResId: Int? = null, // For local PNG logos
+    val emoji: String? = null, // For custom subscription emoji
+    val currency: String = "TRY",
+    val notes: String = "" // Optional notes
 )
 
 data class PopularService(
@@ -81,11 +90,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppContent() {
-    val context = LocalContext.current
-    val languageFlow = remember(context) { LocaleManager.getLanguageFlow(context) }
-    val currentLanguage by languageFlow.collectAsState(initial = LocaleManager.defaultLanguage)
-    
-            SubscriptionTrackerTheme {
+    SubscriptionTrackerTheme {
+        val context = LocalContext.current
         val navController = rememberNavController()
         NavGraph(
             navController = navController,
@@ -101,15 +107,26 @@ fun AppContent() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SubscriptionItem(subscription: Subscription) {
+fun SubscriptionItem(
+    subscription: Subscription,
+    onClick: () -> Unit = {},
+    onDelete: () -> Unit = {}
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
     val currency = CurrencyManager.getCurrency(currentCurrency)
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showDeleteDialog = true }
+            ),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -125,34 +142,66 @@ fun SubscriptionItem(subscription: Subscription) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Logo
-            if (!subscription.logoUrl.isNullOrEmpty()) {
-                AsyncImage(
-                    model = subscription.logoUrl,
-                    contentDescription = subscription.name,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Fit
-                )
-            } else {
-                // Placeholder
-                Surface(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
+            // Logo - prioritize emoji, then logoResId (local PNG), then logoUrl, then placeholder
+            when {
+                !subscription.emoji.isNullOrEmpty() -> {
+                    // Emoji for custom subscriptions
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = subscription.name.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = subscription.emoji ?: "",
+                            style = MaterialTheme.typography.displayMedium
                         )
+                    }
+                }
+                subscription.logoResId != null -> {
+                    Image(
+                        painter = painterResource(id = subscription.logoResId),
+                        contentDescription = subscription.name,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                !subscription.logoUrl.isNullOrEmpty() -> {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(subscription.logoUrl)
+                            .decoderFactory(SvgDecoder.Factory())
+                            .crossfade(true)
+                            .allowHardware(false)
+                            .build(),
+                        contentDescription = subscription.name,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                else -> {
+                    // Placeholder
+                    Surface(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = subscription.name.take(1).uppercase(),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -200,6 +249,37 @@ fun SubscriptionItem(subscription: Subscription) {
                 )
             }
         }
+    }
+    
+    // Delete confirmation dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = {
+                Text("Delete subscription?")
+            },
+            text = {
+                Text("Are you sure you want to delete this subscription?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 

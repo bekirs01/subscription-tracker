@@ -39,7 +39,9 @@ fun HomeScreen(
     onSubscriptionsChanged: (List<Subscription>) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToChat: () -> Unit = {},
-    onAddSubscription: () -> Unit
+    onAddSubscription: () -> Unit,
+    onEditSubscription: (Int) -> Unit,
+    onDeleteSubscription: (Int) -> Unit
 ) {
     val context = LocalContext.current
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
@@ -208,7 +210,11 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(subscriptions) { subscription ->
-                                SubscriptionItem(subscription = subscription)
+                                SubscriptionItem(
+                                    subscription = subscription,
+                                    onClick = { onEditSubscription(subscription.id) },
+                                    onDelete = { onDeleteSubscription(subscription.id) }
+                                )
                             }
                         }
                     }

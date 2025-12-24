@@ -1,34 +1,49 @@
 package com.example.subscriptiontracker.ui.add
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.subscriptiontracker.R
-import com.example.subscriptiontracker.PopularService
-import com.example.subscriptiontracker.data.PopularServices
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PopularServicesScreen(
     onNavigateBack: () -> Unit,
-    onServiceSelected: (PopularService) -> Unit
+    onServiceSelected: (ServiceItem) -> Unit,
+    onCustomSelected: () -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // Filter services by search query
+    val filteredServices = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            services
+        } else {
+            services.filter { service ->
+                service.name.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+    
+    val showCustomButton = searchQuery.isNotBlank() && filteredServices.isEmpty()
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -46,24 +61,71 @@ fun PopularServicesScreen(
                             contentDescription = stringResource(R.string.back)
                         )
                     }
+                },
+                actions = {
+                    TextButton(onClick = onCustomSelected) {
+                        Text(stringResource(R.string.custom))
+                    }
                 }
             )
         }
     ) { paddingValues ->
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 100.dp),
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(paddingValues)
         ) {
-            items(PopularServices.top100) { service ->
-                ServiceCard(
-                    service = service,
-                    onClick = { onServiceSelected(service) }
+            // Search bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                placeholder = { Text(stringResource(R.string.search_subscriptions)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null
+                    )
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.large,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
                 )
+            )
+            
+            // Show custom button if no search results
+            if (showCustomButton) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Button(
+                        onClick = onCustomSelected,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.create_custom_subscription))
+                    }
+                }
+            }
+            
+            // Service List - one per row
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filteredServices) { service ->
+                    ServiceCard(
+                        service = service,
+                        onClick = { onServiceSelected(service) }
+                    )
+                }
             }
         }
     }
@@ -71,13 +133,12 @@ fun PopularServicesScreen(
 
 @Composable
 fun ServiceCard(
-    service: PopularService,
+    service: ServiceItem,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -87,34 +148,38 @@ fun ServiceCard(
             defaultElevation = 2.dp
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             // Logo
-            AsyncImage(
-                model = service.logoUrl,
+            Image(
+                painter = painterResource(id = service.drawableResId),
                 contentDescription = service.name,
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp)),
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Fit
             )
             
-            // Service Name
+            // Service name
             Text(
                 text = service.name,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
+                modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // Arrow indicator
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
-
