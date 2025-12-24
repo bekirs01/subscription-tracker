@@ -7,6 +7,7 @@
     <string name="subscriptions_tab">Subscriptions</string>
     <string name="subscriptions_title">My Subscriptions</string>
     <string name="budget_tracking_tab">Budget Tracking</string>
+    <string name="total_monthly_cost">Total Monthly Cost</string>
     <string name="no_subscriptions_title">You don\'t have any subscriptions yet</string>
     <string name="no_subscriptions_subtitle">Add your first subscription to get started</string>
     <string name="no_subscriptions">No subscriptions added yet</string>

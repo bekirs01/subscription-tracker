@@ -79,5 +79,9 @@ object CurrencyManager {
         return supportedCurrencies.find { it.code == currencyCode }
             ?: supportedCurrencies.find { it.code == defaultCurrency }
     }
+    
+    fun getAllCurrencies(): List<Currency> {
+        return supportedCurrencies
+    }
 }
 

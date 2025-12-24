@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,6 +25,8 @@ import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.SubscriptionItem
 import com.example.subscriptiontracker.AddSubscriptionDialog
+import com.example.subscriptiontracker.Period
+import com.example.subscriptiontracker.utils.CurrencyManager
 
 enum class HomeTab {
     SUBSCRIPTIONS, BUDGET
@@ -31,36 +35,40 @@ enum class HomeTab {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    subscriptions: List<Subscription>,
+    onSubscriptionsChanged: (List<Subscription>) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToChat: () -> Unit = {},
     onAddSubscription: () -> Unit
 ) {
-    var subscriptions by remember { mutableStateOf<List<Subscription>>(emptyList()) }
+    val context = LocalContext.current
+    val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
+    val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
+    val currency = CurrencyManager.getCurrency(currentCurrency)
+    
     var selectedTab by remember { mutableStateOf(HomeTab.SUBSCRIPTIONS) }
-    var showDialog by remember { mutableStateOf(false) }
-    var nextId by remember { mutableIntStateOf(1) }
+    
+    // Calculate total monthly cost
+    val totalMonthlyCost = remember(subscriptions) {
+        subscriptions.sumOf { subscription ->
+            val price = subscription.price.toDoubleOrNull() ?: 0.0
+            if (subscription.period == Period.YEARLY) {
+                price / 12.0
+            } else {
+                price
+            }
+        }
+    }
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // App Icon placeholder
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
-                        Text(
-                            text = stringResource(R.string.app_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.app_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 actions = {
                     OutlinedButton(
@@ -97,7 +105,7 @@ fun HomeScreen(
                         }
                     },
                     selected = false,
-                    onClick = { showDialog = true }
+                    onClick = onAddSubscription
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, null) },
@@ -127,11 +135,47 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Total Monthly Cost Card
+            if (subscriptions.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 2.dp
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.total_monthly_cost),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "${currency?.symbol ?: "₺"}${String.format("%.2f", totalMonthlyCost)}",
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+            
             // Segmented Control
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SegmentedButton(
@@ -155,12 +199,12 @@ fun HomeScreen(
                 HomeTab.SUBSCRIPTIONS -> {
                     if (subscriptions.isEmpty()) {
                         EmptyState(
-                            onAddClick = { showDialog = true }
+                            onAddClick = onAddSubscription
                         )
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(subscriptions) { subscription ->
@@ -182,17 +226,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
-        
-        if (showDialog) {
-            AddSubscriptionDialog(
-                onDismiss = { showDialog = false },
-                onSave = { subscription ->
-                    subscriptions = subscriptions + subscription.copy(id = nextId)
-                    nextId++
-                    showDialog = false
-                }
-            )
         }
     }
 }
