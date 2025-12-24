@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,11 +71,14 @@ fun SubscriptionDetailsScreen(
     val defaultPeriodFlow = remember { PeriodManager.getDefaultPeriodFlow(context) }
     val defaultPeriodString by defaultPeriodFlow.collectAsState(initial = PeriodManager.defaultPeriod)
     
+    // Store original subscription snapshot for dirty checking (Edit mode only)
+    val originalSubscription = remember(existingSubscription?.id) { existingSubscription }
+    
     // Initialize fields based on existing subscription (edit mode) or predefined service/custom (new mode)
     var name by remember { mutableStateOf(existingSubscription?.name ?: predefinedService?.name ?: "") }
     var price by remember { mutableStateOf(existingSubscription?.price ?: "") }
     var selectedCurrencyCode by remember { mutableStateOf(existingSubscription?.currency ?: currentCurrency) }
-    var showPricePicker by remember { mutableStateOf(false) }
+    var showCurrencyPicker by remember { mutableStateOf(false) }
     var selectedPeriod by remember { 
         mutableStateOf(
             existingSubscription?.period ?: if (defaultPeriodString == "YEARLY") Period.YEARLY else Period.MONTHLY
@@ -89,6 +93,8 @@ fun SubscriptionDetailsScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     
     // Reminder selection (single choice: 7, 3, or 1 day) - Default: 7 days
+    // Note: Reminder days are not stored in Subscription model, so we use a default of 7
+    // For edit mode, we'll assume 7 days (since it's not persisted)
     var selectedReminderDays by remember { mutableStateOf<Int>(7) } // Default: 7 days before
     var reminderExpanded by remember { mutableStateOf(false) }
     
@@ -106,9 +112,27 @@ fun SubscriptionDetailsScreen(
         }
     }
     
-    var selectedYear by remember { mutableIntStateOf(currentDate.year) }
-    var selectedMonth by remember { mutableIntStateOf(currentDate.monthValue) }
-    var selectedDay by remember { mutableIntStateOf(currentDate.dayOfMonth) }
+    // Initialize date picker state from currentDate, and update when startDate changes
+    var selectedYear by remember(startDate) { mutableIntStateOf(currentDate.year) }
+    var selectedMonth by remember(startDate) { mutableIntStateOf(currentDate.monthValue) }
+    var selectedDay by remember(startDate) { mutableIntStateOf(currentDate.dayOfMonth) }
+    
+    // Update date picker state when startDate changes externally
+    LaunchedEffect(startDate) {
+        val date = try {
+            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                val parts = startDate.split("-")
+                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+            } else {
+                LocalDate.now()
+            }
+        } catch (e: Exception) {
+            LocalDate.now()
+        }
+        selectedYear = date.year
+        selectedMonth = date.monthValue
+        selectedDay = date.dayOfMonth
+    }
     
     // Validation states
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -130,6 +154,20 @@ fun SubscriptionDetailsScreen(
                       priceError == null && 
                       dateError == null &&
                       (predefinedService != null || selectedEmoji != null) // Emoji required for custom
+    
+    // Determine if we're in Edit mode
+    val isEditMode = originalSubscription != null
+    
+    // Save button enablement logic
+    // CRITICAL: In Edit mode, Save button is ALWAYS enabled (override dirty check)
+    // In Add mode, use form validation
+    val isSaveButtonEnabled = if (isEditMode) {
+        // Edit mode: Always enabled (ignore dirty check completely)
+        true
+    } else {
+        // Add mode: Enable only if form is valid
+        isFormValid
+    }
     
     // Validation functions
     fun validateName(input: String, errorMsg: String): String? {
@@ -213,7 +251,9 @@ fun SubscriptionDetailsScreen(
                     }
                     Button(
                         onClick = {
-                            if (isFormValid) {
+                            // In Edit mode, always allow save (even if unchanged)
+                            // In Add mode, only save if form is valid
+                            if (isEditMode || isFormValid) {
                                 scope.launch {
                                     PeriodManager.saveDefaultPeriod(
                                         context, 
@@ -236,7 +276,7 @@ fun SubscriptionDetailsScreen(
                                 )
                             }
                         },
-                        enabled = isFormValid,
+                        enabled = isSaveButtonEnabled,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(stringResource(R.string.save))
@@ -437,29 +477,69 @@ fun SubscriptionDetailsScreen(
                 }
             }
             
-            // Price Field (clickable to open price picker)
-            val selectedCurrency = CurrencyManager.getCurrency(selectedCurrencyCode)
-            OutlinedTextField(
-                value = if (price.isNotBlank()) "${selectedCurrency?.symbol ?: "₺"}$price" else "",
-                onValueChange = { },
-                label = { Text(stringResource(R.string.price)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showPricePicker = true },
-                readOnly = true,
-                singleLine = true,
-                isError = priceError != null,
-                supportingText = priceError?.let { { Text(it) } },
-                shape = MaterialTheme.shapes.medium,
-                trailingIcon = {
-                    IconButton(onClick = { showPricePicker = true }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = null
-                        )
-                    }
+            // Price Section: Amount + Currency
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.price),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Amount Input (Left)
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { 
+                            price = it
+                            priceError = validatePrice(it, errorPriceInvalid)
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        isError = priceError != null,
+                        supportingText = priceError?.let { { Text(it) } },
+                        shape = MaterialTheme.shapes.medium,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal
+                        ),
+                        placeholder = { Text("0.00") }
+                    )
+                    
+                    // Currency Selector (Right)
+                    val selectedCurrency = CurrencyManager.getCurrency(selectedCurrencyCode)
+                    FilterChip(
+                        selected = false,
+                        onClick = { showCurrencyPicker = true },
+                        label = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = selectedCurrency?.flag ?: "🇹🇷",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = selectedCurrency?.code ?: "TRY",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
                 }
-            )
+            }
             
             // Start Date Field
             OutlinedTextField(
@@ -670,137 +750,74 @@ fun SubscriptionDetailsScreen(
             }
         }
         
-        // Price Picker Dialog
-        if (showPricePicker) {
-            var tempPrice by remember(showPricePicker) { mutableStateOf(price) }
-            var tempCurrencyCode by remember(showPricePicker) { mutableStateOf(selectedCurrencyCode) }
-            var tempPriceError by remember { mutableStateOf<String?>(null) }
-            
+        // Currency Picker Dialog
+        if (showCurrencyPicker) {
             AlertDialog(
-                onDismissRequest = { showPricePicker = false },
+                onDismissRequest = { showCurrencyPicker = false },
                 title = {
                     Text(
-                        text = stringResource(R.string.price),
+                        text = stringResource(R.string.currency),
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
                 text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
                     ) {
-                        // Currency Selector
-                        Text(
-                            text = "Currency",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        var currencyExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            OutlinedTextField(
-                                value = CurrencyManager.getCurrency(tempCurrencyCode)?.let { 
-                                    "${it.symbol} ${it.name}"
-                                } ?: "Select Currency",
-                                onValueChange = {},
+                        items(CurrencyManager.getAllCurrencies()) { currency ->
+                            val isSelected = selectedCurrencyCode == currency.code
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { currencyExpanded = true },
-                                readOnly = true,
-                                trailingIcon = {
-                                    IconButton(onClick = { currencyExpanded = true }) {
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
-                                            contentDescription = null
-                                        )
+                                    .clickable {
+                                        selectedCurrencyCode = currency.code
+                                        showCurrencyPicker = false
                                     }
-                                }
-                            )
-                            DropdownMenu(
-                                expanded = currencyExpanded,
-                                onDismissRequest = { currencyExpanded = false }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                CurrencyManager.getAllCurrencies().forEach { curr ->
-                                    DropdownMenuItem(
-                                        text = { 
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text("${curr.symbol} ${curr.name}")
-                                                if (tempCurrencyCode == curr.code) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            tempCurrencyCode = curr.code
-                                            currencyExpanded = false
-                                        },
-                                        colors = MenuDefaults.itemColors(
-                                            textColor = if (tempCurrencyCode == curr.code) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = currency.flag,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Column {
+                                        Text(
+                                            text = currency.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (isSelected) {
                                                 MaterialTheme.colorScheme.primary
                                             } else {
                                                 MaterialTheme.colorScheme.onSurface
                                             }
                                         )
+                                        Text(
+                                            text = "${currency.code} (${currency.symbol})",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
+                            HorizontalDivider()
                         }
-                        
-                        // Price Input
-                        Text(
-                            text = "Amount",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        OutlinedTextField(
-                            value = tempPrice,
-                            onValueChange = { 
-                                tempPrice = it
-                                tempPriceError = validatePrice(it, errorPriceInvalid)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            isError = tempPriceError != null,
-                            supportingText = tempPriceError?.let { { Text(it) } },
-                            prefix = {
-                                Text(
-                                    text = "${CurrencyManager.getCurrency(tempCurrencyCode)?.symbol ?: "₺"} ",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
                     }
                 },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            if (tempPriceError == null && tempPrice.isNotBlank()) {
-                                price = tempPrice
-                                selectedCurrencyCode = tempCurrencyCode
-                                priceError = null
-                                showPricePicker = false
-                            }
-                        },
-                        enabled = tempPriceError == null && tempPrice.isNotBlank()
-                    ) {
-                        Text(stringResource(R.string.save))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showPricePicker = false }) {
+                    TextButton(onClick = { showCurrencyPicker = false }) {
                         Text(stringResource(R.string.cancel))
                     }
                 }
@@ -835,13 +852,15 @@ fun SubscriptionDetailsScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(
+                    Button(
                         onClick = {
                             try {
                                 val date = LocalDate.of(selectedYear, selectedMonth, selectedDay)
                                 val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                                startDate = date.format(formatter)
-                                dateError = validateDate(startDate, errorDateFormat, errorDateInvalid)
+                                val newStartDate = date.format(formatter)
+                                // Update state explicitly to trigger recomposition
+                                startDate = newStartDate
+                                dateError = validateDate(newStartDate, errorDateFormat, errorDateInvalid)
                                 showDatePicker = false
                             } catch (e: Exception) {
                                 dateError = errorDateInvalid
