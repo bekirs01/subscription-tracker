@@ -3,6 +3,8 @@ package com.example.subscriptiontracker.ui.add
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -11,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +22,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
@@ -28,6 +33,10 @@ import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.PeriodManager
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.YearMonth
+import java.util.Calendar
 
 // Emoji list for custom subscriptions
 private val emojiList = listOf(
@@ -49,7 +58,8 @@ fun SubscriptionDetailsScreen(
     predefinedService: ServiceItem? = null, // null if custom
     existingSubscription: Subscription? = null, // null if new, not null if editing
     onNavigateBack: () -> Unit,
-    onSave: (Subscription) -> Unit
+    onSave: (Subscription) -> Unit,
+    onNavigateToPremium: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -63,6 +73,8 @@ fun SubscriptionDetailsScreen(
     // Initialize fields based on existing subscription (edit mode) or predefined service/custom (new mode)
     var name by remember { mutableStateOf(existingSubscription?.name ?: predefinedService?.name ?: "") }
     var price by remember { mutableStateOf(existingSubscription?.price ?: "") }
+    var selectedCurrencyCode by remember { mutableStateOf(existingSubscription?.currency ?: currentCurrency) }
+    var showPricePicker by remember { mutableStateOf(false) }
     var selectedPeriod by remember { 
         mutableStateOf(
             existingSubscription?.period ?: if (defaultPeriodString == "YEARLY") Period.YEARLY else Period.MONTHLY
@@ -74,6 +86,29 @@ fun SubscriptionDetailsScreen(
     var selectedLogoResId by remember { mutableStateOf<Int?>(existingSubscription?.logoResId ?: predefinedService?.drawableResId) }
     var selectedEmoji by remember { mutableStateOf<String?>(existingSubscription?.emoji) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    
+    // Reminder selection (single choice: 7, 3, or 1 day) - Default: 7 days
+    var selectedReminderDays by remember { mutableStateOf<Int>(7) } // Default: 7 days before
+    var reminderExpanded by remember { mutableStateOf(false) }
+    
+    // Parse current date or use today
+    val currentDate = remember(startDate) {
+        try {
+            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                val parts = startDate.split("-")
+                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+            } else {
+                LocalDate.now()
+            }
+        } catch (e: Exception) {
+            LocalDate.now()
+        }
+    }
+    
+    var selectedYear by remember { mutableIntStateOf(currentDate.year) }
+    var selectedMonth by remember { mutableIntStateOf(currentDate.monthValue) }
+    var selectedDay by remember { mutableIntStateOf(currentDate.dayOfMonth) }
     
     // Validation states
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -195,7 +230,7 @@ fun SubscriptionDetailsScreen(
                                         logoUrl = existingSubscription?.logoUrl,
                                         logoResId = selectedLogoResId,
                                         emoji = selectedEmoji,
-                                        currency = currentCurrency,
+                                        currency = selectedCurrencyCode,
                                         notes = notes.trim()
                                     )
                                 )
@@ -402,42 +437,83 @@ fun SubscriptionDetailsScreen(
                 }
             }
             
-            // Price Field
+            // Price Field (clickable to open price picker)
+            val selectedCurrency = CurrencyManager.getCurrency(selectedCurrencyCode)
             OutlinedTextField(
-                value = price,
-                onValueChange = { 
-                    price = it
-                    priceError = validatePrice(it, errorPriceInvalid)
-                },
+                value = if (price.isNotBlank()) "${selectedCurrency?.symbol ?: "₺"}$price" else "",
+                onValueChange = { },
                 label = { Text(stringResource(R.string.price)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showPricePicker = true },
+                readOnly = true,
                 singleLine = true,
                 isError = priceError != null,
                 supportingText = priceError?.let { { Text(it) } },
                 shape = MaterialTheme.shapes.medium,
-                prefix = {
-                    Text(
-                        text = "${currency?.symbol ?: "₺"} ",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                trailingIcon = {
+                    IconButton(onClick = { showPricePicker = true }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    }
                 }
             )
             
             // Start Date Field
             OutlinedTextField(
                 value = startDate,
-                onValueChange = { 
-                    startDate = it
-                    dateError = validateDate(it, errorDateFormat, errorDateInvalid)
-                },
+                onValueChange = { },
                 label = { Text(stringResource(R.string.start_date)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { 
+                        // Initialize picker with current date
+                        val date = try {
+                            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                                val parts = startDate.split("-")
+                                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+                            } else {
+                                LocalDate.now()
+                            }
+                        } catch (e: Exception) {
+                            LocalDate.now()
+                        }
+                        selectedYear = date.year
+                        selectedMonth = date.monthValue
+                        selectedDay = date.dayOfMonth
+                        showDatePicker = true 
+                    },
+                readOnly = true,
                 singleLine = true,
                 placeholder = { Text(stringResource(R.string.start_date_placeholder)) },
                 isError = dateError != null,
                 supportingText = dateError?.let { { Text(it) } },
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
+                trailingIcon = {
+                    IconButton(onClick = { 
+                        val date = try {
+                            if (startDate.isNotBlank() && startDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                                val parts = startDate.split("-")
+                                LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+                            } else {
+                                LocalDate.now()
+                            }
+                        } catch (e: Exception) {
+                            LocalDate.now()
+                        }
+                        selectedYear = date.year
+                        selectedMonth = date.monthValue
+                        selectedDay = date.dayOfMonth
+                        showDatePicker = true 
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    }
+                }
             )
             
             // Notes Field (Optional)
@@ -448,6 +524,338 @@ fun SubscriptionDetailsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 3,
                 shape = MaterialTheme.shapes.medium
+            )
+            
+            // Reminder Selection (like Period selector)
+            Box {
+                OutlinedTextField(
+                    value = when (selectedReminderDays) {
+                        7 -> "7 days before"
+                        3 -> "3 days before"
+                        1 -> "1 day before"
+                        else -> "7 days before"
+                    },
+                    onValueChange = {},
+                    label = { Text("Reminder") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { reminderExpanded = true },
+                    readOnly = true,
+                    shape = MaterialTheme.shapes.medium,
+                    trailingIcon = {
+                        IconButton(onClick = { reminderExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                )
+                DropdownMenu(
+                    expanded = reminderExpanded,
+                    onDismissRequest = { reminderExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { 
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("7 days before")
+                                if (selectedReminderDays == 7) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            selectedReminderDays = 7
+                            reminderExpanded = false
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = if (selectedReminderDays == 7) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    )
+                    DropdownMenuItem(
+                        text = { 
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("3 days before")
+                                    Text(
+                                        text = "🔒 Premium",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                if (selectedReminderDays == 3) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            selectedReminderDays = 3
+                            reminderExpanded = false
+                            // Navigate to Premium when 3 days reminder is selected
+                            onNavigateToPremium()
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = if (selectedReminderDays == 3) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    )
+                    DropdownMenuItem(
+                        text = { 
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("1 day before")
+                                    Text(
+                                        text = "🔒 Premium",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                if (selectedReminderDays == 1) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            selectedReminderDays = 1
+                            reminderExpanded = false
+                            // Navigate to Premium when 1 day reminder is selected
+                            onNavigateToPremium()
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = if (selectedReminderDays == 1) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    )
+                }
+            }
+        }
+        
+        // Price Picker Dialog
+        if (showPricePicker) {
+            var tempPrice by remember(showPricePicker) { mutableStateOf(price) }
+            var tempCurrencyCode by remember(showPricePicker) { mutableStateOf(selectedCurrencyCode) }
+            var tempPriceError by remember { mutableStateOf<String?>(null) }
+            
+            AlertDialog(
+                onDismissRequest = { showPricePicker = false },
+                title = {
+                    Text(
+                        text = stringResource(R.string.price),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Currency Selector
+                        Text(
+                            text = "Currency",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        var currencyExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedTextField(
+                                value = CurrencyManager.getCurrency(tempCurrencyCode)?.let { 
+                                    "${it.symbol} ${it.name}"
+                                } ?: "Select Currency",
+                                onValueChange = {},
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { currencyExpanded = true },
+                                readOnly = true,
+                                trailingIcon = {
+                                    IconButton(onClick = { currencyExpanded = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                            )
+                            DropdownMenu(
+                                expanded = currencyExpanded,
+                                onDismissRequest = { currencyExpanded = false }
+                            ) {
+                                CurrencyManager.getAllCurrencies().forEach { curr ->
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("${curr.symbol} ${curr.name}")
+                                                if (tempCurrencyCode == curr.code) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            tempCurrencyCode = curr.code
+                                            currencyExpanded = false
+                                        },
+                                        colors = MenuDefaults.itemColors(
+                                            textColor = if (tempCurrencyCode == curr.code) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            }
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Price Input
+                        Text(
+                            text = "Amount",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        OutlinedTextField(
+                            value = tempPrice,
+                            onValueChange = { 
+                                tempPrice = it
+                                tempPriceError = validatePrice(it, errorPriceInvalid)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = tempPriceError != null,
+                            supportingText = tempPriceError?.let { { Text(it) } },
+                            prefix = {
+                                Text(
+                                    text = "${CurrencyManager.getCurrency(tempCurrencyCode)?.symbol ?: "₺"} ",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (tempPriceError == null && tempPrice.isNotBlank()) {
+                                price = tempPrice
+                                selectedCurrencyCode = tempCurrencyCode
+                                priceError = null
+                                showPricePicker = false
+                            }
+                        },
+                        enabled = tempPriceError == null && tempPrice.isNotBlank()
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPricePicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+        
+        // Date Picker Dialog
+        if (showDatePicker) {
+            AlertDialog(
+                onDismissRequest = { showDatePicker = false },
+                title = {
+                    Text(
+                        text = stringResource(R.string.start_date),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                text = {
+                    DatePickerWheel(
+                        selectedYear = selectedYear,
+                        selectedMonth = selectedMonth,
+                        selectedDay = selectedDay,
+                        onYearChanged = { selectedYear = it },
+                        onMonthChanged = { 
+                            selectedMonth = it
+                            // Adjust day if needed (e.g., Feb 30 -> Feb 28)
+                            val maxDay = YearMonth.of(selectedYear, selectedMonth).lengthOfMonth()
+                            if (selectedDay > maxDay) {
+                                selectedDay = maxDay
+                            }
+                        },
+                        onDayChanged = { selectedDay = it }
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            try {
+                                val date = LocalDate.of(selectedYear, selectedMonth, selectedDay)
+                                val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                                startDate = date.format(formatter)
+                                dateError = validateDate(startDate, errorDateFormat, errorDateInvalid)
+                                showDatePicker = false
+                            } catch (e: Exception) {
+                                dateError = errorDateInvalid
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
             )
         }
         
@@ -495,6 +903,172 @@ fun SubscriptionDetailsScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun DatePickerWheel(
+    selectedYear: Int,
+    selectedMonth: Int,
+    selectedDay: Int,
+    onYearChanged: (Int) -> Unit,
+    onMonthChanged: (Int) -> Unit,
+    onDayChanged: (Int) -> Unit
+) {
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    val years = (2020..currentYear + 10).toList()
+    val months = (1..12).toList()
+    
+    // Calculate max days for selected month/year
+    val maxDay = YearMonth.of(selectedYear, selectedMonth).lengthOfMonth()
+    val days = remember(selectedYear, selectedMonth) { (1..maxDay).toList() }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(250.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Year Picker
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Year",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(years.size) { index ->
+                        val year = years[index]
+                        val isSelected = year == selectedYear
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onYearChanged(year) }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = year.toString(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Month Picker
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Month",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(months.size) { index ->
+                        val month = months[index]
+                        val isSelected = month == selectedMonth
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onMonthChanged(month) }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = month.toString().padStart(2, '0'),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Day Picker
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Day",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(days.size) { index ->
+                        val day = days[index]
+                        val isSelected = day == selectedDay
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onDayChanged(day) }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = day.toString().padStart(2, '0'),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

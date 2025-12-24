@@ -1,6 +1,7 @@
 package com.example.subscriptiontracker.navigation
 
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,6 +15,9 @@ import com.example.subscriptiontracker.ui.settings.SettingsScreen
 import com.example.subscriptiontracker.ui.add.PopularServicesScreen
 import com.example.subscriptiontracker.ui.add.SubscriptionDetailsScreen
 import com.example.subscriptiontracker.ui.add.ServiceItem
+import com.example.subscriptiontracker.utils.SubscriptionReminderManager
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -33,6 +37,9 @@ fun NavGraph(
     onThemeChanged: () -> Unit = {},
     onLanguageChanged: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
     // Shared subscription state
     var subscriptions by remember { mutableStateOf<List<Subscription>>(emptyList()) }
     var nextId by remember { mutableIntStateOf(1) }
@@ -55,6 +62,10 @@ fun NavGraph(
                     navController.navigate(Screen.EditSubscription.createRoute(subscriptionId))
                 },
                 onDeleteSubscription = { subscriptionId ->
+                    // Cancel reminders before deleting
+                    scope.launch {
+                        SubscriptionReminderManager.cancelReminders(context, subscriptionId)
+                    }
                     subscriptions = subscriptions.filter { it.id != subscriptionId }
                 }
             )
@@ -84,8 +95,13 @@ fun NavGraph(
                 onAddSubscription = { subscription ->
                     // Subscription'ı HomeScreen'e eklemek için state güncelle
                     // Not: Bu basit bir çözüm, gerçek uygulamada ViewModel veya state management kullanılmalı
-                    subscriptions = subscriptions + subscription.copy(id = nextId)
+                    val newSubscription = subscription.copy(id = nextId)
+                    subscriptions = subscriptions + newSubscription
                     nextId++
+                    // Schedule reminders for subscription added from chat
+                    scope.launch {
+                        SubscriptionReminderManager.scheduleReminders(context, newSubscription)
+                    }
                 },
                 onThemeChanged = onThemeChanged,
                 onLanguageChanged = onLanguageChanged
@@ -117,13 +133,21 @@ fun NavGraph(
                     navController.popBackStack() 
                 },
                 onSave = { subscription ->
-                    subscriptions = subscriptions + subscription.copy(id = nextId)
+                    val newSubscription = subscription.copy(id = nextId)
+                    subscriptions = subscriptions + newSubscription
                     nextId++
                     selectedService = null
+                    // Schedule reminders for new subscription
+                    scope.launch {
+                        SubscriptionReminderManager.scheduleReminders(context, newSubscription)
+                    }
                     // Navigate directly to Home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = false }
                     }
+                },
+                onNavigateToPremium = {
+                    navController.navigate(Screen.Premium.route)
                 }
             )
         }
@@ -140,17 +164,25 @@ fun NavGraph(
                 existingSubscription = subscriptionToEdit,
                 onNavigateBack = { navController.popBackStack() },
                 onSave = { updatedSubscription ->
+                    val finalSubscription = updatedSubscription.copy(id = subscriptionId)
                     subscriptions = subscriptions.map { 
                         if (it.id == subscriptionId) {
-                            updatedSubscription.copy(id = subscriptionId)
+                            finalSubscription
                         } else {
                             it
                         }
+                    }
+                    // Update reminders for edited subscription
+                    scope.launch {
+                        SubscriptionReminderManager.updateReminders(context, finalSubscription)
                     }
                     // Navigate back to Home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = false }
                     }
+                },
+                onNavigateToPremium = {
+                    navController.navigate(Screen.Premium.route)
                 }
             )
         }

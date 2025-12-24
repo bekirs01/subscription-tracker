@@ -27,6 +27,9 @@ import com.example.subscriptiontracker.SubscriptionItem
 import com.example.subscriptiontracker.AddSubscriptionDialog
 import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 enum class HomeTab {
     SUBSCRIPTIONS, BUDGET
@@ -216,6 +219,13 @@ fun HomeScreen(
                                     onDelete = { onDeleteSubscription(subscription.id) }
                                 )
                             }
+                            
+                            // Upcoming Payments Section
+                            if (subscriptions.isNotEmpty()) {
+                                item {
+                                    UpcomingPaymentsSection(subscriptions = subscriptions)
+                                }
+                            }
                         }
                     }
                 }
@@ -327,5 +337,134 @@ fun SegmentedButton(
             }
         }
     }
+}
+
+@Composable
+fun UpcomingPaymentsSection(subscriptions: List<Subscription>) {
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    
+    // Calculate upcoming payments for each subscription
+    // Recalculate when subscriptions change
+    val upcomingPayments = remember(subscriptions) {
+        val currentDate = LocalDate.now()
+        subscriptions.mapNotNull { subscription ->
+            try {
+                val startDate = LocalDate.parse(subscription.renewalDate, formatter)
+                
+                // Calculate next payment date
+                val nextPaymentDate = calculateNextPaymentDate(startDate, subscription.period, currentDate)
+                
+                // Calculate days until payment
+                val daysUntil = ChronoUnit.DAYS.between(currentDate, nextPaymentDate).toInt()
+                
+                // Only include payments within 30 days
+                if (daysUntil >= 0 && daysUntil <= 30) {
+                    Pair(subscription, daysUntil)
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }.sortedBy { it.second } // Sort by days until payment (soonest first)
+    }
+    
+    if (upcomingPayments.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Section Title
+        Text(
+            text = stringResource(R.string.upcoming_payments),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        // Upcoming Payments List
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            upcomingPayments.forEach { (subscription, daysUntil) ->
+                UpcomingPaymentRow(
+                    subscriptionName = subscription.name,
+                    daysUntil = daysUntil
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UpcomingPaymentRow(
+    subscriptionName: String,
+    daysUntil: Int
+) {
+    val paymentText = when {
+        daysUntil == 0 -> stringResource(R.string.payment_today)
+        daysUntil == 1 -> stringResource(R.string.payment_tomorrow)
+        else -> stringResource(R.string.payment_in_days, daysUntil)
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = subscriptionName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = paymentText,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = if (daysUntil <= 3) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+        )
+    }
+}
+
+/**
+ * Calculate the next payment date based on start date, period, and current date.
+ * If start date is in the past, calculate the next occurrence.
+ * If start date is in the future, use that date.
+ */
+fun calculateNextPaymentDate(
+    startDate: LocalDate,
+    period: Period,
+    currentDate: LocalDate
+): LocalDate {
+    // If start date is in the future, return it
+    if (startDate.isAfter(currentDate)) {
+        return startDate
+    }
+    
+    // If start date is today or in the past, calculate next occurrence
+    var nextDate = startDate
+    
+    when (period) {
+        Period.MONTHLY -> {
+            // Add months until we get a date in the future
+            while (!nextDate.isAfter(currentDate)) {
+                nextDate = nextDate.plusMonths(1)
+            }
+        }
+        Period.YEARLY -> {
+            // Add years until we get a date in the future
+            while (!nextDate.isAfter(currentDate)) {
+                nextDate = nextDate.plusYears(1)
+            }
+        }
+    }
+    
+    return nextDate
 }
 
