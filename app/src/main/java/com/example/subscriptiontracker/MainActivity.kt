@@ -116,9 +116,8 @@ fun SubscriptionItem(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
-    val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
-    val currency = CurrencyManager.getCurrency(currentCurrency)
+    // Her abonelik kendi para birimini gösterir
+    val currency = CurrencyManager.getCurrency(subscription.currency)
     
     Card(
         modifier = Modifier

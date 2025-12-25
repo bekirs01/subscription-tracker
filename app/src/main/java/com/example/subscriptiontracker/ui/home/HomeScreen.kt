@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
@@ -53,19 +54,38 @@ fun HomeScreen(
     val context = LocalContext.current
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
-    val currency = CurrencyManager.getCurrency(currentCurrency)
+    val baseCurrency = CurrencyManager.getCurrency(currentCurrency)
     
     var selectedTab by remember { mutableStateOf(HomeTab.SUBSCRIPTIONS) }
     
-    // Calculate total monthly cost
-    val totalMonthlyCost = remember(subscriptions) {
-        subscriptions.sumOf { subscription ->
-            val price = subscription.price.toDoubleOrNull() ?: 0.0
-            if (subscription.period == Period.YEARLY) {
-                price / 12.0
-            } else {
-                price
+    // Calculate total monthly cost - SADECE base currency ile uyumlu abonelikleri topla
+    val (totalMonthlyCost, hasMultipleCurrencies) = remember(subscriptions, currentCurrency) {
+        val currencies = subscriptions.map { it.currency }.distinct()
+        val hasMultiple = currencies.size > 1
+        
+        if (hasMultiple) {
+            // Farklı para birimleri varsa, sadece base currency ile uyumlu olanları topla
+            val baseCurrencySubscriptions = subscriptions.filter { it.currency == currentCurrency }
+            val total = baseCurrencySubscriptions.sumOf { subscription ->
+                val price = subscription.price.toDoubleOrNull() ?: 0.0
+                if (subscription.period == Period.YEARLY) {
+                    price / 12.0
+                } else {
+                    price
+                }
             }
+            Pair(total, true)
+        } else {
+            // Tek para birimi varsa, tüm abonelikleri topla
+            val total = subscriptions.sumOf { subscription ->
+                val price = subscription.price.toDoubleOrNull() ?: 0.0
+                if (subscription.period == Period.YEARLY) {
+                    price / 12.0
+                } else {
+                    price
+                }
+            }
+            Pair(total, false)
         }
     }
     
@@ -170,12 +190,23 @@ fun HomeScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        Text(
-                            text = "${currency?.symbol ?: "₺"}${String.format("%.2f", totalMonthlyCost)}",
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        if (hasMultipleCurrencies) {
+                            // Farklı para birimleri varsa mesaj göster
+                            Text(
+                                text = "Toplam harcama farklı para birimleri içeriyor",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                textAlign = TextAlign.Center
+                            )
+                        } else {
+                            // Tek para birimi varsa toplamı göster
+                            Text(
+                                text = "${baseCurrency?.symbol ?: "₺"}${String.format("%.2f", totalMonthlyCost)}",
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
             }
@@ -439,10 +470,8 @@ fun UpcomingPaymentRow(
     subscription: Subscription,
     daysUntil: Int
 ) {
-    val context = LocalContext.current
-    val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
-    val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
-    val currency = CurrencyManager.getCurrency(currentCurrency)
+    // Her abonelik kendi para birimini gösterir
+    val currency = CurrencyManager.getCurrency(subscription.currency)
     
     val renewText = when {
         daysUntil == 0 -> stringResource(R.string.payment_today)
