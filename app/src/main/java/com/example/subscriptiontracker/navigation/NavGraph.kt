@@ -85,7 +85,7 @@ fun NavGraph(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())
         ) {
         composable(Screen.Home.route) {
             HomeScreen(
