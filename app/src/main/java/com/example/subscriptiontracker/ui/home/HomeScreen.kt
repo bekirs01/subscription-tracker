@@ -136,20 +136,26 @@ fun HomeScreen(
             appTitle = stringResource(R.string.app_title),
             onAddClick = onAddSubscription
         )
-        LazyColumn(
-                            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            if (subscriptions.isEmpty()) {
-                item {
-                    EmptyState(
-                        onAddClick = onAddSubscription
-                    )
-                }
-            } else {
+        if (subscriptions.isEmpty()) {
+            // Boş durumda içeriği ekranın tam ortasında göster
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                EmptyState(
+                    onAddClick = onAddSubscription
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
                 // Monthly Summary Card
                 item {
                     MonthlySummaryCard(
