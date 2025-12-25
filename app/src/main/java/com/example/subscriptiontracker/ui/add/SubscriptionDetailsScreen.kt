@@ -11,13 +11,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,7 +35,6 @@ import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.PeriodManager
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
@@ -120,7 +118,6 @@ fun SubscriptionDetailsScreen(
     val scope = rememberCoroutineScope()
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
-    val currency = CurrencyManager.getCurrency(currentCurrency)
     
     val defaultPeriodFlow = remember { PeriodManager.getDefaultPeriodFlow(context) }
     val defaultPeriodString by defaultPeriodFlow.collectAsState(initial = PeriodManager.defaultPeriod)
@@ -131,7 +128,10 @@ fun SubscriptionDetailsScreen(
     // Initialize fields based on existing subscription (edit mode) or predefined service/custom (new mode)
     var name by remember { mutableStateOf(existingSubscription?.name ?: predefinedService?.name ?: "") }
     var price by remember { mutableStateOf(existingSubscription?.price ?: "") }
-    var selectedCurrencyCode by remember { mutableStateOf(existingSubscription?.currency ?: currentCurrency) }
+    // Para birimi: Edit modunda mevcut aboneliğin para birimi, yeni abonelikte ayarlardan gelen para birimi
+    var selectedCurrencyCode by remember(currentCurrency, existingSubscription?.id) { 
+        mutableStateOf(existingSubscription?.currency ?: currentCurrency) 
+    }
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var selectedPeriod by remember { 
         mutableStateOf(
@@ -141,7 +141,7 @@ fun SubscriptionDetailsScreen(
     var startDate by remember { mutableStateOf(existingSubscription?.renewalDate ?: "") }
     var notes by remember { mutableStateOf(existingSubscription?.notes ?: "") }
     var periodExpanded by remember { mutableStateOf(false) }
-    var selectedLogoResId by remember { mutableStateOf<Int?>(existingSubscription?.logoResId ?: predefinedService?.drawableResId) }
+    val selectedLogoResId = remember { existingSubscription?.logoResId ?: predefinedService?.drawableResId }
     var selectedEmoji by remember { mutableStateOf<String?>(existingSubscription?.emoji) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -149,7 +149,7 @@ fun SubscriptionDetailsScreen(
     // Reminder selection (single choice: 7, 3, or 1 day) - Default: 7 days
     // Note: Reminder days are not stored in Subscription model, so we use a default of 7
     // For edit mode, we'll assume 7 days (since it's not persisted)
-    var selectedReminderDays by remember { mutableStateOf<Int>(7) } // Default: 7 days before
+    var selectedReminderDays by remember { mutableIntStateOf(7) } // Default: 7 days before
     var reminderExpanded by remember { mutableStateOf(false) }
     
     
@@ -218,7 +218,6 @@ fun SubscriptionDetailsScreen(
     }
     
     // Form validity
-    val logoId = selectedLogoResId
     val isFormValid = name.isNotBlank() && 
                       price.isNotBlank() && 
                       startDate.isNotBlank() &&
@@ -277,7 +276,7 @@ fun SubscriptionDetailsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back)
                         )
                     }
@@ -368,11 +367,14 @@ fun SubscriptionDetailsScreen(
                     ) {
                         when {
                             !existingSubscription.emoji.isNullOrEmpty() -> {
-                                Text(
-                                    text = selectedEmoji ?: existingSubscription.emoji!!,
-                                    style = MaterialTheme.typography.displayLarge,
-                                    modifier = Modifier.size(80.dp)
-                                )
+                                val emoji = selectedEmoji ?: existingSubscription.emoji
+                                if (emoji != null) {
+                                    Text(
+                                        text = emoji,
+                                        style = MaterialTheme.typography.displayLarge,
+                                        modifier = Modifier.size(80.dp)
+                                    )
+                                }
                             }
                             existingSubscription.logoResId != null -> {
                                 Image(
@@ -434,9 +436,10 @@ fun SubscriptionDetailsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (selectedEmoji != null) {
+                        val emoji = selectedEmoji
+                        if (emoji != null) {
                             Text(
-                                text = selectedEmoji!!,
+                                text = emoji,
                                 style = MaterialTheme.typography.displayLarge,
                                 modifier = Modifier.size(80.dp)
                             )
@@ -565,6 +568,7 @@ fun SubscriptionDetailsScreen(
                     
                     // Currency Selector (Right)
                     val selectedCurrency = CurrencyManager.getCurrency(selectedCurrencyCode)
+                    val defaultCurrency = CurrencyManager.getCurrency(CurrencyManager.defaultCurrency)
                     FilterChip(
                         selected = false,
                         onClick = { showCurrencyPicker = true },
@@ -574,11 +578,11 @@ fun SubscriptionDetailsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = selectedCurrency?.flag ?: "🇹🇷",
+                                    text = selectedCurrency?.flag ?: defaultCurrency?.flag ?: "🇹🇷",
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                                 Text(
-                                    text = selectedCurrency?.code ?: "TRY",
+                                    text = selectedCurrency?.code ?: defaultCurrency?.code ?: CurrencyManager.defaultCurrency,
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
