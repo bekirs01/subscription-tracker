@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.utils.BillingManager
 import com.example.subscriptiontracker.utils.PremiumManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class PremiumPackage(
@@ -111,6 +113,17 @@ fun PremiumScreen(
     
     var selectedPackage by remember { mutableStateOf<PremiumPackage?>(null) }
     
+    // X butonu 3 saniye boyunca pasif
+    var canClose by remember { mutableStateOf(false) }
+    var showLoading by remember { mutableStateOf(true) }
+    
+    // 3 saniye sonra X butonu aktif olsun
+    LaunchedEffect(Unit) {
+        delay(3000) // 3 saniye bekle
+        showLoading = false
+        canClose = true
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -127,6 +140,42 @@ fun PremiumScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back)
                         )
+                    }
+                },
+                actions = {
+                    if (showLoading) {
+                        // Loading indicator (ilk 3 saniye)
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    } else {
+                        // X (kapat) butonu (3 saniye sonra aktif)
+                        IconButton(
+                            onClick = {
+                                if (canClose) {
+                                    onNavigateBack()
+                                }
+                            },
+                            enabled = canClose
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = if (canClose) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                }
+                            )
+                        }
                     }
                 }
             )

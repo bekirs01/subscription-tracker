@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,10 +31,12 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import androidx.navigation.compose.rememberNavController
 import com.example.subscriptiontracker.navigation.NavGraph
+import com.example.subscriptiontracker.navigation.Screen
 import com.example.subscriptiontracker.ui.theme.SubscriptionTrackerTheme
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
 import com.example.subscriptiontracker.utils.PeriodManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -93,6 +96,19 @@ fun AppContent() {
     SubscriptionTrackerTheme {
         val context = LocalContext.current
         val navController = rememberNavController()
+        
+        // İlk açılış kontrolü - app açıkken tekrar tetiklenmesin
+        var hasShownPremium by rememberSaveable { mutableStateOf(false) }
+        
+        // 5 saniye sonra Premium ekranına yönlendir (sadece ilk sefer)
+        LaunchedEffect(Unit) {
+            if (!hasShownPremium) {
+                delay(5000) // 5 saniye bekle
+                navController.navigate(Screen.Premium.route)
+                hasShownPremium = true
+            }
+        }
+        
         NavGraph(
             navController = navController,
             onThemeChanged = {
