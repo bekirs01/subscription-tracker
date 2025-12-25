@@ -14,7 +14,6 @@ import com.example.subscriptiontracker.ui.home.BudgetStatsScreen
 import com.example.subscriptiontracker.ui.premium.PremiumScreen
 import com.example.subscriptiontracker.ui.settings.SettingsScreen
 import com.example.subscriptiontracker.data.fx.ExchangeRateRepository
-import com.example.subscriptiontracker.data.fx.FxState
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.ui.add.PopularServicesScreen
 import com.example.subscriptiontracker.ui.add.SubscriptionDetailsScreen
@@ -24,13 +23,13 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String) {
-    object Home : Screen("home")
-    object Stats : Screen("stats")
-    object Settings : Screen("settings")
-    object Premium : Screen("premium")
-    object Chat : Screen("chat")
-    object PopularServices : Screen("popular_services")
-    object SubscriptionDetails : Screen("subscription_details")
+    data object Home : Screen("home")
+    data object Stats : Screen("stats")
+    data object Settings : Screen("settings")
+    data object Premium : Screen("premium")
+    data object Chat : Screen("chat")
+    data object PopularServices : Screen("popular_services")
+    data object SubscriptionDetails : Screen("subscription_details")
     object EditSubscription : Screen("edit_subscription/{subscriptionId}") {
         fun createRoute(subscriptionId: Int) = "edit_subscription/$subscriptionId"
     }
