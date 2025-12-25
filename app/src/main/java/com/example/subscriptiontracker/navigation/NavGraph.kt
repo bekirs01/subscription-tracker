@@ -10,8 +10,12 @@ import androidx.navigation.navArgument
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.ui.chat.ChatScreen
 import com.example.subscriptiontracker.ui.home.HomeScreen
+import com.example.subscriptiontracker.ui.home.BudgetStatsScreen
 import com.example.subscriptiontracker.ui.premium.PremiumScreen
 import com.example.subscriptiontracker.ui.settings.SettingsScreen
+import com.example.subscriptiontracker.data.fx.ExchangeRateRepository
+import com.example.subscriptiontracker.data.fx.FxState
+import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.ui.add.PopularServicesScreen
 import com.example.subscriptiontracker.ui.add.SubscriptionDetailsScreen
 import com.example.subscriptiontracker.ui.add.ServiceItem
@@ -21,6 +25,7 @@ import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
+    object Stats : Screen("stats")
     object Settings : Screen("settings")
     object Premium : Screen("premium")
     object Chat : Screen("chat")
@@ -57,6 +62,7 @@ fun NavGraph(
                 onSubscriptionsChanged = { subscriptions = it },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                 onNavigateToChat = { navController.navigate(Screen.Chat.route) },
+                onNavigateToStats = { navController.navigate(Screen.Stats.route) },
                 onAddSubscription = { navController.navigate(Screen.PopularServices.route) },
                 onEditSubscription = { subscriptionId ->
                     navController.navigate(Screen.EditSubscription.createRoute(subscriptionId))
@@ -68,6 +74,22 @@ fun NavGraph(
                     }
                     subscriptions = subscriptions.filter { it.id != subscriptionId }
                 }
+            )
+        }
+        
+        composable(Screen.Stats.route) {
+            val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
+            val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
+            val fxStateFlow = remember(currentCurrency) {
+                ExchangeRateRepository.ratesFlow(context, currentCurrency)
+            }
+            val fxState by fxStateFlow.collectAsState()
+            
+            BudgetStatsScreen(
+                subscriptions = subscriptions,
+                baseCurrency = currentCurrency,
+                fxState = fxState,
+                context = context
             )
         }
         
