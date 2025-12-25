@@ -139,11 +139,11 @@ fun AppMainContent() {
     // İlk açılış kontrolü - app açıkken tekrar tetiklenmesin
     var hasShownPremium by rememberSaveable { mutableStateOf(false) }
     
-    // 5 saniye sonra Premium ekranına yönlendir (sadece ilk sefer)
+    // 5 saniye sonra Premium Promo ekranına yönlendir (sadece ilk sefer)
     LaunchedEffect(Unit) {
         if (!hasShownPremium) {
             delay(5000) // 5 saniye bekle
-            navController.navigate(Screen.Premium.route)
+            navController.navigate(Screen.PremiumPromo.route)
             hasShownPremium = true
         }
     }

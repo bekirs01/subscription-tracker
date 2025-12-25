@@ -1,5 +1,6 @@
 package com.example.subscriptiontracker.ui.premium
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -32,11 +33,17 @@ data class PremiumPackage(
     val productType: String // "SUBS" or "INAPP"
 )
 
+enum class PremiumScreenMode {
+    SETTINGS, // Settings'ten açılan normal Premium
+    PROMO     // İlk açılışta 5 sn sonra açılan kilitli Premium
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PremiumScreen(
     onNavigateBack: () -> Unit,
-    onPurchaseComplete: () -> Unit = {}
+    onPurchaseComplete: () -> Unit = {},
+    mode: PremiumScreenMode = PremiumScreenMode.SETTINGS
 ) {
     val context = LocalContext.current
     val activity = context as? androidx.activity.ComponentActivity
@@ -113,68 +120,88 @@ fun PremiumScreen(
     
     var selectedPackage by remember { mutableStateOf<PremiumPackage?>(null) }
     
-    // X butonu 3 saniye boyunca pasif
-    var canClose by remember { mutableStateOf(false) }
-    var showLoading by remember { mutableStateOf(true) }
+    // Promo mode için X butonu kilitleme
+    val showCloseX = mode == PremiumScreenMode.PROMO
+    val showBack = mode == PremiumScreenMode.SETTINGS
+    val closeLockedSeconds = if (mode == PremiumScreenMode.PROMO) 3 else 0
     
-    // 3 saniye sonra X butonu aktif olsun
-    LaunchedEffect(Unit) {
-        delay(3000) // 3 saniye bekle
-        showLoading = false
-        canClose = true
+    var canClose by remember { mutableStateOf(mode != PremiumScreenMode.PROMO) }
+    var showLoading by remember { mutableStateOf(mode == PremiumScreenMode.PROMO) }
+    
+    // Promo mode'da 3 saniye sonra X butonu aktif olsun
+    LaunchedEffect(mode) {
+        if (mode == PremiumScreenMode.PROMO) {
+            delay(closeLockedSeconds * 1000L) // 3 saniye bekle
+            showLoading = false
+            canClose = true
+        }
+    }
+    
+    // Promo mode'da back press kontrolü (ilk 3 saniye devre dışı)
+    if (mode == PremiumScreenMode.PROMO) {
+        BackHandler(enabled = canClose) {
+            onNavigateBack()
+        }
     }
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = stringResource(R.string.premium_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
+                    // Promo mode'da başlık gösterilmez
+                    if (mode == PremiumScreenMode.SETTINGS) {
+                        Text(
+                            text = stringResource(R.string.premium_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 },
-                actions = {
-                    if (showLoading) {
-                        // Loading indicator (ilk 3 saniye)
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
+                navigationIcon = {
+                    if (showBack) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back)
                             )
                         }
-                    } else {
-                        // X (kapat) butonu (3 saniye sonra aktif)
-                        IconButton(
-                            onClick = {
-                                if (canClose) {
-                                    onNavigateBack()
-                                }
-                            },
-                            enabled = canClose
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = if (canClose) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                }
-                            )
+                    }
+                },
+                actions = {
+                    if (showCloseX) {
+                        if (showLoading) {
+                            // Loading indicator (ilk 3 saniye)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .padding(12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        } else {
+                            // X (kapat) butonu (3 saniye sonra aktif)
+                            IconButton(
+                                onClick = {
+                                    if (canClose) {
+                                        onNavigateBack()
+                                    }
+                                },
+                                enabled = canClose
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = if (canClose) {
+                                        MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -205,7 +232,7 @@ fun PremiumScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = selectedPackage != null && isBillingReady && !isPremium,
+                        enabled = selectedPackage != null,
                         shape = MaterialTheme.shapes.large,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary

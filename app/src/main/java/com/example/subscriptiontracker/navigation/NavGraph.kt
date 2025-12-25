@@ -27,6 +27,7 @@ import com.example.subscriptiontracker.ui.chat.ChatScreen
 import com.example.subscriptiontracker.ui.home.HomeScreen
 import com.example.subscriptiontracker.ui.home.BudgetStatsScreen
 import com.example.subscriptiontracker.ui.premium.PremiumScreen
+import com.example.subscriptiontracker.ui.premium.PremiumScreenMode
 import com.example.subscriptiontracker.ui.settings.SettingsScreen
 import com.example.subscriptiontracker.data.fx.ExchangeRateRepository
 import com.example.subscriptiontracker.utils.CurrencyManager
@@ -42,7 +43,8 @@ sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Stats : Screen("stats")
     data object Settings : Screen("settings")
-    data object Premium : Screen("premium")
+    data object Premium : Screen("premium") // Settings'ten açılan Premium
+    data object PremiumPromo : Screen("premium_promo") // İlk açılışta açılan Premium
     data object Chat : Screen("chat")
     data object PopularServices : Screen("popular_services")
     data object SubscriptionDetails : Screen("subscription_details")
@@ -138,7 +140,18 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onPurchaseComplete = {
                     navController.popBackStack()
-                }
+                },
+                mode = PremiumScreenMode.SETTINGS
+            )
+        }
+        
+        composable(Screen.PremiumPromo.route) {
+            PremiumScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onPurchaseComplete = {
+                    navController.popBackStack()
+                },
+                mode = PremiumScreenMode.PROMO
             )
         }
         
