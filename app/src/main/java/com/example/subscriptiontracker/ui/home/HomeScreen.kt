@@ -31,7 +31,8 @@ import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.SubscriptionItem
 import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
-import com.example.subscriptiontracker.utils.ExchangeRateRepository
+import com.example.subscriptiontracker.data.fx.ExchangeRateRepository
+import com.example.subscriptiontracker.data.fx.FxState
 import java.util.Calendar
 import java.util.Locale
 
@@ -56,7 +57,6 @@ fun HomeScreen(
     onEditSubscription: (Int) -> Unit,
     onDeleteSubscription: (Int) -> Unit
 ) {
-    // onSubscriptionsChanged parametresi şu an kullanılmıyor ama API'de tutuluyor
     val context = LocalContext.current
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
@@ -64,19 +64,22 @@ fun HomeScreen(
     
     var selectedTab by remember { mutableStateOf(HomeTab.SUBSCRIPTIONS) }
     
-    var exchangeRates by remember { mutableStateOf<Map<String, Double>?>(null) }
+    val fxStateFlow = remember(currentCurrency) {
+        ExchangeRateRepository.ratesFlow(context, currentCurrency)
+    }
+    val fxState by fxStateFlow.collectAsState()
     
-    LaunchedEffect(currentCurrency) {
-        exchangeRates = ExchangeRateRepository.getExchangeRates(context, currentCurrency)
+    LaunchedEffect(subscriptions) {
+        onSubscriptionsChanged(subscriptions)
     }
     
     // Calculate total monthly cost - TÜM abonelikleri base currency'ye dönüştürerek topla
-    val totals = remember(subscriptions, currentCurrency, exchangeRates) {
+    val totals = remember(subscriptions, currentCurrency, fxState) {
         val currencies = subscriptions.map { it.currency }.distinct()
         val hasMultiple = currencies.size > 1
         
         if (!hasMultiple) {
-            // TEK para birimi varsa: exchangeRates kullanma, direkt topla, uyarı gösterme
+            // TEK para birimi varsa: direkt topla, uyarı gösterme
             val total = subscriptions.sumOf { subscription ->
                 val price = subscription.price.toDoubleOrNull() ?: 0.0
                 if (subscription.period == Period.YEARLY) {
@@ -88,48 +91,49 @@ fun HomeScreen(
             TotalCostResult(total, hasMultipleCurrencies = false, showConversionWarning = false)
         } else {
             // BİRDEN FAZLA para birimi var
-            val rates = exchangeRates
-            if (rates == null) {
-                // Kurlar yüklenemedi
-                TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
-            } else {
-                // Kurlar yüklendi, tümünü base currency'ye dönüştür
-                var total = 0.0
-                var allConverted = true
-                
-                subscriptions.forEach { subscription ->
-                    val price = subscription.price.toDoubleOrNull() ?: 0.0
-                    val monthlyPrice = if (subscription.period == Period.YEARLY) {
-                        price / 12.0
+            when (val state = fxState) {
+                is FxState.Ready -> {
+                    val fx = state.fx
+                    if (fx.base != currentCurrency) {
+                        TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
                     } else {
-                        price
-                    }
-                    
-                    if (subscription.currency == currentCurrency) {
-                        // Zaten base currency, direkt ekle
-                        total += monthlyPrice
-                    } else {
-                        // Dönüştür
-                        val converted = ExchangeRateRepository.convertCurrency(
-                            monthlyPrice,
-                            subscription.currency,
-                            currentCurrency,
-                            rates
-                        )
-                        if (converted != null) {
-                            total += converted
-                        } else {
-                            allConverted = false
+                        var total = 0.0
+                        var allConverted = true
+                        
+                        subscriptions.forEach { subscription ->
+                            val price = subscription.price.toDoubleOrNull() ?: 0.0
+                            val monthlyPrice = if (subscription.period == Period.YEARLY) {
+                                price / 12.0
+                            } else {
+                                price
+                            }
+                            
+                            if (subscription.currency == currentCurrency) {
+                                total += monthlyPrice
+                            } else {
+                                val fromRate = fx.rates[subscription.currency]
+                                if (fromRate != null && fromRate > 0.0) {
+                                    val baseAmount = monthlyPrice / fromRate
+                                    total += baseAmount
+                                } else {
+                                    allConverted = false
+                                }
+                            }
                         }
+                        
+                        TotalCostResult(
+                            if (allConverted) total else null,
+                            hasMultipleCurrencies = true,
+                            showConversionWarning = allConverted
+                        )
                     }
                 }
-                
-                // Eğer tüm dönüşümler başarılıysa uyarı göster
-                TotalCostResult(
-                    if (allConverted) total else null,
-                    hasMultipleCurrencies = true,
-                    showConversionWarning = allConverted
-                )
+                is FxState.Unavailable -> {
+                    TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
+                }
+                is FxState.Loading -> {
+                    TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
+                }
             }
         }
     }
@@ -237,15 +241,18 @@ fun HomeScreen(
                         )
                         val total = totals.total
                         if (total == null) {
-                            // Toplam hesaplanamıyor
+                            val currentFxState = fxState
+                            val message = when (currentFxState) {
+                                is FxState.Unavailable -> currentFxState.reason
+                                else -> "Toplam hesaplanamıyor: Döviz kurları alınamadı"
+                            }
                             Text(
-                                text = "Toplam hesaplanamıyor: Döviz kurları alınamadı",
+                                text = message,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center
                             )
                         } else {
-                            // Toplam göster
                             val symbol = baseCurrency?.symbol ?: "₺"
                             Text(
                                 text = "$symbol${String.format(Locale.getDefault(), "%.2f", total)}",
@@ -280,7 +287,7 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Text(
-                                text = "Kur farkı olabilir. Farklı para birimleri dönüştürüldü.",
+                                text = "Dönüştürme yaklaşık olabilir (kur farkı).",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -363,9 +370,10 @@ fun HomeScreen(
 fun EmptyState(
     onAddClick: () -> Unit
 ) {
-    // onAddClick parametresi şu an kullanılmıyor ama API'de tutuluyor
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(onClick = onAddClick),
         contentAlignment = Alignment.Center
     ) {
         Column(
