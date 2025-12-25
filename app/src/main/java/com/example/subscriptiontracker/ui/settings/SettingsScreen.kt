@@ -31,6 +31,11 @@ import com.example.subscriptiontracker.utils.ThemeManager
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -66,7 +71,6 @@ fun SettingsScreen(
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
-    var reminderExpanded by remember { mutableStateOf(false) }
     var showPremiumDialog by remember { mutableStateOf(false) }
     
     // Bildirim izni launcher (Android 13+)
@@ -317,109 +321,206 @@ fun SettingsScreen(
                 }
             }
             
-            // Billing Cycle Reminder Bölümü
+            // Billing Cycle Reminder Bölümü - Yeni Tasarım
             item {
-                SettingsSection(title = stringResource(R.string.section_billing_reminder)) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        val currentReminder = ReminderManager.getReminderOption(currentReminderDays)
-                            ?: ReminderManager.reminderOptions.first()
-                        
-                        val reminderLabel = when (currentReminder.days) {
-                            7 -> stringResource(R.string.billing_reminder_7_days)
-                            3 -> stringResource(R.string.billing_reminder_3_days)
-                            1 -> stringResource(R.string.billing_reminder_1_day)
-                            else -> currentReminder.label
-                        }
-                        
-                        OutlinedTextField(
-                            value = "$reminderLabel ${if (currentReminder.isPremium) "(${stringResource(R.string.premium_label)})" else "(${stringResource(R.string.free_label)})"}",
-                            onValueChange = {},
-                            label = { Text(stringResource(R.string.section_billing_reminder)) },
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Başlık ve Açıklama
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Faturalandırma Hatırlatıcısı",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Abonelik yenilenmeden önce bildirim al",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // ÜCRETSİZ BÖLÜM
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { reminderExpanded = true },
-                            readOnly = true,
-                            shape = MaterialTheme.shapes.medium,
-                            trailingIcon = {
-                                IconButton(onClick = { reminderExpanded = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = null
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "7 gün kala hatırlat",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Bu özellik ücretsizdir",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
-                        )
-                        DropdownMenu(
-                            expanded = reminderExpanded,
-                            onDismissRequest = { reminderExpanded = false }
+                            Switch(
+                                checked = currentReminderDays == 7,
+                                onCheckedChange = {
+                                    if (it) {
+                                        scope.launch {
+                                            ReminderManager.saveReminderDays(context, 7)
+                                        }
+                                    }
+                                },
+                                enabled = true
+                            )
+                        }
+                    }
+                    
+                    // PREMIUM BÖLÜM
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        border = if (!isPremium) {
+                            androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            )
+                        } else null
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            ReminderManager.reminderOptions.forEach { option ->
-                                val optionLabel = when (option.days) {
-                                    7 -> stringResource(R.string.billing_reminder_7_days)
-                                    3 -> stringResource(R.string.billing_reminder_3_days)
-                                    1 -> stringResource(R.string.billing_reminder_1_day)
-                                    else -> option.label
-                                }
-                                
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = optionLabel,
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                    color = if (option.isPremium) 
-                                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                    else 
-                                                        MaterialTheme.colorScheme.onSurface
-                                                )
-                                                if (option.isPremium) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Lock,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(16.dp),
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                    )
-                                                }
-                                            }
-                                            Text(
-                                                text = if (option.isPremium) stringResource(R.string.premium_label) else stringResource(R.string.free_label),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = if (option.isPremium) 
-                                                    MaterialTheme.colorScheme.primary 
-                                                else 
-                                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        if (option.isPremium && !isPremium) {
-                                            // Premium özellik ama kullanıcı premium değil - Premium ekranına yönlendir
-                                            reminderExpanded = false
-                                            onNavigateToPremium()
-                                        } else if (option.isPremium && isPremium) {
-                                            // Premium özellik ve kullanıcı premium - kaydet
-                                            scope.launch {
-                                                ReminderManager.saveReminderDays(context, option.days)
-                                                reminderExpanded = false
-                                            }
-                                        } else {
-                                            // Free özellik - kaydet
-                                            scope.launch {
-                                                ReminderManager.saveReminderDays(context, option.days)
-                                                reminderExpanded = false
-                                            }
-                                        }
-                                    },
-                                    enabled = true
+                            // Premium Başlık
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
+                                Text(
+                                    text = "Premium Hatırlatıcı Ayarları",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            // Premium Seçenekler
+                            PremiumReminderOption(
+                                label = "3 gün kala hatırlat",
+                                isEnabled = isPremium,
+                                isSelected = currentReminderDays == 3 && isPremium,
+                                onClick = {
+                                    if (isPremium) {
+                                        scope.launch {
+                                            ReminderManager.saveReminderDays(context, 3)
+                                        }
+                                    } else {
+                                        onNavigateToPremium()
+                                    }
+                                }
+                            )
+                            
+                            PremiumReminderOption(
+                                label = "1 gün kala hatırlat",
+                                isEnabled = isPremium,
+                                isSelected = currentReminderDays == 1 && isPremium,
+                                onClick = {
+                                    if (isPremium) {
+                                        scope.launch {
+                                            ReminderManager.saveReminderDays(context, 1)
+                                        }
+                                    } else {
+                                        onNavigateToPremium()
+                                    }
+                                }
+                            )
+                            
+                            PremiumReminderOption(
+                                label = "Bildirim saati seç",
+                                isEnabled = isPremium,
+                                isSelected = false,
+                                onClick = {
+                                    if (!isPremium) {
+                                        onNavigateToPremium()
+                                    }
+                                }
+                            )
+                            
+                            PremiumReminderOption(
+                                label = "Birden fazla hatırlatma al",
+                                isEnabled = isPremium,
+                                isSelected = false,
+                                onClick = {
+                                    if (!isPremium) {
+                                        onNavigateToPremium()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    
+                    // Premium CTA
+                    if (!isPremium) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "Bildirimleri istediğin gün ve saatte al",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = onNavigateToPremium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text(
+                                        text = "Premium'a Yükselt",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
@@ -601,6 +702,63 @@ fun PremiumBannerCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun PremiumReminderOption(
+    label: String,
+    isEnabled: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = true, onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isSelected && isEnabled) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = if (isEnabled) 
+                        MaterialTheme.colorScheme.onSurfaceVariant 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isEnabled) 
+                    MaterialTheme.colorScheme.onSurface 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+            )
+        }
+        if (isSelected && isEnabled) {
+            Switch(
+                checked = true,
+                onCheckedChange = { onClick() },
+                enabled = true
+            )
         }
     }
 }
