@@ -20,11 +20,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
@@ -79,7 +77,7 @@ fun HomeScreen(
         val hasMultiple = currencies.size > 1
         
         if (!hasMultiple) {
-            // TEK para birimi varsa: direkt topla, uyarı gösterme
+            // TEK para birimi varsa: direkt topla
             val total = subscriptions.sumOf { subscription ->
                 val price = subscription.price.toDoubleOrNull() ?: 0.0
                 if (subscription.period == Period.YEARLY) {
@@ -91,14 +89,13 @@ fun HomeScreen(
             TotalCostResult(total, hasMultipleCurrencies = false, showConversionWarning = false)
         } else {
             // BİRDEN FAZLA para birimi var
-            when (val state = fxState) {
+            when (val currentFxState = fxState) {
                 is FxState.Ready -> {
-                    val fx = state.fx
+                    val fx = currentFxState.fx
                     if (fx.base != currentCurrency) {
-                        TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
+                        TotalCostResult(0.0, hasMultipleCurrencies = true, showConversionWarning = false)
                     } else {
                         var total = 0.0
-                        var allConverted = true
                         
                         subscriptions.forEach { subscription ->
                             val price = subscription.price.toDoubleOrNull() ?: 0.0
@@ -115,24 +112,15 @@ fun HomeScreen(
                                 if (fromRate != null && fromRate > 0.0) {
                                     val baseAmount = monthlyPrice / fromRate
                                     total += baseAmount
-                                } else {
-                                    allConverted = false
                                 }
                             }
                         }
                         
-                        TotalCostResult(
-                            if (allConverted) total else null,
-                            hasMultipleCurrencies = true,
-                            showConversionWarning = allConverted
-                        )
+                        TotalCostResult(total, hasMultipleCurrencies = true, showConversionWarning = false)
                     }
                 }
-                is FxState.Unavailable -> {
-                    TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
-                }
-                is FxState.Loading -> {
-                    TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
+                is FxState.Unavailable, is FxState.Loading -> {
+                    TotalCostResult(0.0, hasMultipleCurrencies = true, showConversionWarning = false)
                 }
             }
         }
@@ -239,59 +227,14 @@ fun HomeScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        val total = totals.total
-                        if (total == null) {
-                            val currentFxState = fxState
-                            val message = when (currentFxState) {
-                                is FxState.Unavailable -> currentFxState.reason
-                                else -> "Toplam hesaplanamıyor: Döviz kurları alınamadı"
-                            }
-                            Text(
-                                text = message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center
-                            )
-                        } else {
-                            val symbol = baseCurrency?.symbol ?: "₺"
-                            Text(
-                                text = "$symbol${String.format(Locale.getDefault(), "%.2f", total)}",
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                }
-                
-                // Uyarı mesajı (farklı para birimleri varsa ve başarıyla dönüştürüldüyse)
-                if (totals.hasMultipleCurrencies && totals.showConversionWarning) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        shape = MaterialTheme.shapes.small,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        val total = totals.total ?: 0.0
+                        val symbol = baseCurrency?.symbol ?: "₺"
+                        Text(
+                            text = "$symbol${String.format(Locale.getDefault(), "%.2f", total)}",
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "⚠️",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "Dönüştürme yaklaşık olabilir (kur farkı).",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
             }
@@ -591,7 +534,7 @@ fun UpcomingPaymentRow(
                 when {
                     !subscription.emoji.isNullOrEmpty() -> {
                         Text(
-                            text = subscription.emoji.orEmpty(),
+                            text = subscription.emoji ?: "",
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -684,4 +627,5 @@ fun calculateNextPaymentDate(
     
     return nextDate
 }
+
 

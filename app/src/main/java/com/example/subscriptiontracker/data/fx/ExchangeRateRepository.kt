@@ -49,18 +49,25 @@ object ExchangeRateRepository {
                     FxCache.save(context, fetched)
                     stateFlow.value = FxState.Ready(fetched, fromCache = false)
                 } else {
-                    val hasCache = cached != null
-                    stateFlow.value = FxState.Unavailable(
-                        reason = "Döviz kurları alınamadı",
-                        hasCache = hasCache
-                    )
+                    if (cached != null) {
+                        stateFlow.value = FxState.Ready(cached, fromCache = true)
+                    } else {
+                        stateFlow.value = FxState.Unavailable(
+                            reason = "Döviz kurları alınamadı",
+                            hasCache = false
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 val cached = FxCache.load(context, base)
-                stateFlow.value = FxState.Unavailable(
-                    reason = "Döviz kurları alınamadı",
-                    hasCache = cached != null
-                )
+                if (cached != null) {
+                    stateFlow.value = FxState.Ready(cached, fromCache = true)
+                } else {
+                    stateFlow.value = FxState.Unavailable(
+                        reason = "Döviz kurları alınamadı",
+                        hasCache = false
+                    )
+                }
             }
         }
         

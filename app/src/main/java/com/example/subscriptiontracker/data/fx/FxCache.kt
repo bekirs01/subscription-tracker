@@ -26,11 +26,6 @@ object FxCache {
                 return null
             }
             
-            val now = System.currentTimeMillis() / 1000
-            if (now - savedAt > TTL_SECONDS) {
-                return null
-            }
-            
             val rates = json.decodeFromString<Map<String, Double>>(cachedJson)
             FxRates(
                 base = cachedBase,
