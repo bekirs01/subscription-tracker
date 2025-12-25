@@ -3,6 +3,7 @@ package com.example.subscriptiontracker.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -85,23 +86,21 @@ fun SettingsScreen(
         null
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        text = stringResource(R.string.settings_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    ) 
-                }
-            )
-        }
-    ) { paddingValues ->
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        TopAppBar(
+            modifier = Modifier.statusBarsPadding(),
+            title = { 
+                Text(
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                ) 
+            }
+        )
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
@@ -425,7 +424,7 @@ fun SettingsScreen(
                 }
             }
         }
-    }
+        }
     
     // Premium Feature Dialog
     if (showPremiumDialog) {

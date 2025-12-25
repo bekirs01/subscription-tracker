@@ -129,60 +129,16 @@ fun HomeScreen(
         }
     }
     
-    Scaffold(
-        topBar = {
-            HomeHeader(
-                appTitle = stringResource(R.string.app_title),
-                onAddClick = onAddSubscription
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Dashboard") },
-                    selected = true,
-                    onClick = { }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.ShowChart, contentDescription = null) },
-                    label = { Text("Stats") },
-                    selected = false,
-                    onClick = onNavigateToStats
-                )
-                NavigationBarItem(
-                    icon = {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = stringResource(R.string.nav_add),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    },
-                    selected = false,
-                    onClick = onAddSubscription
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                    selected = false,
-                    onClick = onNavigateToSettings
-                )
-            }
-        },
-    ) { paddingValues ->
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        HomeHeader(
+            appTitle = stringResource(R.string.app_title),
+            onAddClick = onAddSubscription
+        )
         LazyColumn(
-            modifier = Modifier
+                            modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surface),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -236,8 +192,8 @@ fun HomeHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .heightIn(min = 56.dp),
+                .padding(horizontal = 16.dp)
+                .heightIn(min = 48.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -252,13 +208,13 @@ fun HomeHeader(
                 modifier = Modifier.size(48.dp),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(
+                        ) {
+                            Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.nav_add),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+                                contentDescription = stringResource(R.string.nav_add),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
         }
     }
 }
@@ -515,7 +471,7 @@ fun UpcomingPaymentsList(
                 val daysUntil = daysBetween(currentDate, nextPaymentDate)
                 if (daysUntil in 0..30) {
                     Pair(subscription, daysUntil)
-                } else {
+                    } else {
                     null
                 }
             } catch (e: Exception) {
@@ -526,8 +482,8 @@ fun UpcomingPaymentsList(
     
     if (upcomingPayments.isNotEmpty()) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
             Text(
                 text = "Upcoming Payments",
                 style = MaterialTheme.typography.titleMedium,
@@ -588,14 +544,14 @@ fun UpcomingPaymentCard(
                         .size(40.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center
-                ) {
+                        contentAlignment = Alignment.Center
+                    ) {
                     when {
                         !subscription.emoji.isNullOrEmpty() -> {
-                            Text(
+                        Text(
                                 text = subscription.emoji ?: "",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                         }
                         subscription.logoResId != null -> {
                             Image(

@@ -1,12 +1,27 @@
 package com.example.subscriptiontracker.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.ui.chat.ChatScreen
 import com.example.subscriptiontracker.ui.home.HomeScreen
@@ -19,6 +34,7 @@ import com.example.subscriptiontracker.ui.add.PopularServicesScreen
 import com.example.subscriptiontracker.ui.add.SubscriptionDetailsScreen
 import com.example.subscriptiontracker.ui.add.ServiceItem
 import com.example.subscriptiontracker.utils.SubscriptionReminderManager
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
@@ -51,10 +67,26 @@ fun NavGraph(
     // Selected service state for navigation
     var selectedService by remember { mutableStateOf<ServiceItem?>(null) }
     
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Home.route
-    ) {
+    // Get current route for bottom bar selection
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
+    
+    Scaffold(
+        bottomBar = {
+            AppBottomBar(
+                currentRoute = currentRoute,
+                onHome = { navController.navigate(Screen.Home.route) { popUpTo(Screen.Home.route) { inclusive = false } } },
+                onStats = { navController.navigate(Screen.Stats.route) },
+                onAdd = { navController.navigate(Screen.PopularServices.route) },
+                onSettings = { navController.navigate(Screen.Settings.route) }
+            )
+        }
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(paddingValues)
+        ) {
         composable(Screen.Home.route) {
             HomeScreen(
                 subscriptions = subscriptions,
@@ -207,6 +239,59 @@ fun NavGraph(
                 }
             )
         }
+        }
+    }
+}
+
+@Composable
+fun AppBottomBar(
+    currentRoute: String,
+    onHome: () -> Unit,
+    onStats: () -> Unit,
+    onAdd: () -> Unit,
+    onSettings: () -> Unit
+) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Home, contentDescription = null) },
+            label = { Text("Dashboard") },
+            selected = currentRoute == Screen.Home.route,
+            onClick = onHome
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null) },
+            label = { Text("Stats") },
+            selected = currentRoute == Screen.Stats.route,
+            onClick = onStats
+        )
+        NavigationBarItem(
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource(R.string.nav_add),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            },
+            selected = false, // Add button is not a selectable route
+            onClick = onAdd
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+            label = { Text("Settings") },
+            selected = currentRoute == Screen.Settings.route,
+            onClick = onSettings
+        )
     }
 }
 
