@@ -15,9 +15,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import com.example.subscriptiontracker.ui.permission.NotificationPermissionEntryScreen
+import com.example.subscriptiontracker.utils.NotificationPermissionManager
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -95,32 +102,63 @@ class MainActivity : ComponentActivity() {
 fun AppContent() {
     SubscriptionTrackerTheme {
         val context = LocalContext.current
-        val navController = rememberNavController()
+        val scope = rememberCoroutineScope()
         
-        // İlk açılış kontrolü - app açıkken tekrar tetiklenmesin
-        var hasShownPremium by rememberSaveable { mutableStateOf(false) }
-        
-        // 5 saniye sonra Premium ekranına yönlendir (sadece ilk sefer)
-        LaunchedEffect(Unit) {
-            if (!hasShownPremium) {
-                delay(5000) // 5 saniye bekle
-                navController.navigate(Screen.Premium.route)
-                hasShownPremium = true
-            }
+        // Bildirim izni soruldu mu kontrolü
+        val hasAskedPermissionFlow = remember {
+            NotificationPermissionManager.hasAskedPermissionFlow(context)
         }
+        val hasAskedPermission by hasAskedPermissionFlow.collectAsState(initial = false)
         
-        NavGraph(
-            navController = navController,
-            onThemeChanged = {
-                // Tema değişikliği anında uygulanır
-            },
-            onLanguageChanged = {
-                // Dil değişikliği için Activity'yi kesin olarak yeniden başlat
-                val activity = context as? ComponentActivity
-                activity?.recreate()
-            }
-        )
+        // Android 13+ için izin gerekli mi kontrolü
+        val shouldShowPermissionScreen = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasAskedPermission
+        
+        // İzin ekranı gösterilmeli mi kontrolü
+        if (shouldShowPermissionScreen) {
+            // İlk açılışta ve Android 13+ ise izin ekranını göster
+            NotificationPermissionEntryScreen(
+                onPermissionHandled = {
+                    // İzin verilse de verilmezse de flag'i true yap
+                    scope.launch {
+                        NotificationPermissionManager.setPermissionAsked(context)
+                    }
+                }
+            )
+        } else {
+            // İzin sorulduysa veya Android 12- ise normal uygulamayı göster
+            AppMainContent()
+        }
     }
+}
+
+@Composable
+fun AppMainContent() {
+    val context = LocalContext.current
+    val navController = rememberNavController()
+    
+    // İlk açılış kontrolü - app açıkken tekrar tetiklenmesin
+    var hasShownPremium by rememberSaveable { mutableStateOf(false) }
+    
+    // 5 saniye sonra Premium ekranına yönlendir (sadece ilk sefer)
+    LaunchedEffect(Unit) {
+        if (!hasShownPremium) {
+            delay(5000) // 5 saniye bekle
+            navController.navigate(Screen.Premium.route)
+            hasShownPremium = true
+        }
+    }
+    
+    NavGraph(
+        navController = navController,
+        onThemeChanged = {
+            // Tema değişikliği anında uygulanır
+        },
+        onLanguageChanged = {
+            // Dil değişikliği için Activity'yi kesin olarak yeniden başlat
+            val activity = context as? ComponentActivity
+            activity?.recreate()
+        }
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
