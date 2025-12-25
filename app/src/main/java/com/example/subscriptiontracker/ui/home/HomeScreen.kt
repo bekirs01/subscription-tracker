@@ -29,17 +29,21 @@ import androidx.compose.ui.unit.dp
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.SubscriptionItem
-import com.example.subscriptiontracker.AddSubscriptionDialog
 import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
-import com.example.subscriptiontracker.utils.ExchangeRateService
-import java.text.SimpleDateFormat
+import com.example.subscriptiontracker.utils.ExchangeRateRepository
 import java.util.Calendar
 import java.util.Locale
 
 enum class HomeTab {
     SUBSCRIPTIONS, BUDGET
 }
+
+data class TotalCostResult(
+    val total: Double?,
+    val hasMultipleCurrencies: Boolean,
+    val showConversionWarning: Boolean
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +56,7 @@ fun HomeScreen(
     onEditSubscription: (Int) -> Unit,
     onDeleteSubscription: (Int) -> Unit
 ) {
+    // onSubscriptionsChanged parametresi şu an kullanılmıyor ama API'de tutuluyor
     val context = LocalContext.current
     val currencyFlow = remember { CurrencyManager.getCurrencyFlow(context) }
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
@@ -59,65 +64,19 @@ fun HomeScreen(
     
     var selectedTab by remember { mutableStateOf(HomeTab.SUBSCRIPTIONS) }
     
-    // Exchange rates state
     var exchangeRates by remember { mutableStateOf<Map<String, Double>?>(null) }
-    var ratesLoading by remember { mutableStateOf(false) }
-    var ratesError by remember { mutableStateOf(false) }
     
-    // Kurları yükle
     LaunchedEffect(currentCurrency) {
-        ratesLoading = true
-        ratesError = false
-        exchangeRates = ExchangeRateService.getExchangeRates(currentCurrency)
-        ratesLoading = false
-        if (exchangeRates == null) {
-            ratesError = true
-        }
+        exchangeRates = ExchangeRateRepository.getExchangeRates(context, currentCurrency)
     }
     
     // Calculate total monthly cost - TÜM abonelikleri base currency'ye dönüştürerek topla
-    val (totalMonthlyCost, hasMultipleCurrencies, conversionWarning) = remember(subscriptions, currentCurrency, exchangeRates) {
+    val totals = remember(subscriptions, currentCurrency, exchangeRates) {
         val currencies = subscriptions.map { it.currency }.distinct()
         val hasMultiple = currencies.size > 1
         
-        if (hasMultiple && exchangeRates != null) {
-            // Farklı para birimleri varsa ve kurlar yüklendiyse, tümünü base currency'ye dönüştür
-            var total = 0.0
-            var allConverted = true
-            
-            subscriptions.forEach { subscription ->
-                val price = subscription.price.toDoubleOrNull() ?: 0.0
-                val monthlyPrice = if (subscription.period == Period.YEARLY) {
-                    price / 12.0
-                } else {
-                    price
-                }
-                
-                if (subscription.currency == currentCurrency) {
-                    // Zaten base currency, direkt ekle
-                    total += monthlyPrice
-                } else {
-                    // Dönüştür
-                    val converted = ExchangeRateService.convertCurrency(
-                        monthlyPrice,
-                        subscription.currency,
-                        currentCurrency,
-                        exchangeRates
-                    )
-                    if (converted != null) {
-                        total += converted
-                    } else {
-                        allConverted = false
-                    }
-                }
-            }
-            
-            Pair(total, true, allConverted)
-        } else if (hasMultiple && exchangeRates == null) {
-            // Farklı para birimleri var ama kurlar yüklenemedi
-            Pair(0.0, true, false)
-        } else {
-            // Tek para birimi varsa, tüm abonelikleri topla
+        if (!hasMultiple) {
+            // TEK para birimi varsa: exchangeRates kullanma, direkt topla, uyarı gösterme
             val total = subscriptions.sumOf { subscription ->
                 val price = subscription.price.toDoubleOrNull() ?: 0.0
                 if (subscription.period == Period.YEARLY) {
@@ -126,7 +85,52 @@ fun HomeScreen(
                     price
                 }
             }
-            Pair(total, false, true)
+            TotalCostResult(total, hasMultipleCurrencies = false, showConversionWarning = false)
+        } else {
+            // BİRDEN FAZLA para birimi var
+            val rates = exchangeRates
+            if (rates == null) {
+                // Kurlar yüklenemedi
+                TotalCostResult(null, hasMultipleCurrencies = true, showConversionWarning = false)
+            } else {
+                // Kurlar yüklendi, tümünü base currency'ye dönüştür
+                var total = 0.0
+                var allConverted = true
+                
+                subscriptions.forEach { subscription ->
+                    val price = subscription.price.toDoubleOrNull() ?: 0.0
+                    val monthlyPrice = if (subscription.period == Period.YEARLY) {
+                        price / 12.0
+                    } else {
+                        price
+                    }
+                    
+                    if (subscription.currency == currentCurrency) {
+                        // Zaten base currency, direkt ekle
+                        total += monthlyPrice
+                    } else {
+                        // Dönüştür
+                        val converted = ExchangeRateRepository.convertCurrency(
+                            monthlyPrice,
+                            subscription.currency,
+                            currentCurrency,
+                            rates
+                        )
+                        if (converted != null) {
+                            total += converted
+                        } else {
+                            allConverted = false
+                        }
+                    }
+                }
+                
+                // Eğer tüm dönüşümler başarılıysa uyarı göster
+                TotalCostResult(
+                    if (allConverted) total else null,
+                    hasMultipleCurrencies = true,
+                    showConversionWarning = allConverted
+                )
+            }
         }
     }
     
@@ -152,7 +156,7 @@ fun HomeScreen(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, null) },
+                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
                     label = { Text(stringResource(R.string.nav_home)) },
                     selected = true,
                     onClick = { }
@@ -178,7 +182,7 @@ fun HomeScreen(
                     onClick = onAddSubscription
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Settings, null) },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text(stringResource(R.string.nav_settings)) },
                     selected = false,
                     onClick = onNavigateToSettings
@@ -231,26 +235,20 @@ fun HomeScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        if (hasMultipleCurrencies && exchangeRates == null) {
-                            // Farklı para birimleri var ama kurlar yüklenemedi
+                        val total = totals.total
+                        if (total == null) {
+                            // Toplam hesaplanamıyor
                             Text(
                                 text = "Toplam hesaplanamıyor: Döviz kurları alınamadı",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center
                             )
-                        } else if (hasMultipleCurrencies && !conversionWarning) {
-                            // Farklı para birimleri var ama bazıları dönüştürülemedi
-                            Text(
-                                text = "Toplam hesaplanamıyor: Bazı para birimleri için kur bulunamadı",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center
-                            )
                         } else {
                             // Toplam göster
+                            val symbol = baseCurrency?.symbol ?: "₺"
                             Text(
-                                text = "${baseCurrency?.symbol ?: "₺"}${String.format("%.2f", totalMonthlyCost)}",
+                                text = "$symbol${String.format(Locale.getDefault(), "%.2f", total)}",
                                 style = MaterialTheme.typography.displaySmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -259,8 +257,8 @@ fun HomeScreen(
                     }
                 }
                 
-                // Uyarı mesajı (farklı para birimleri varsa)
-                if (hasMultipleCurrencies && conversionWarning && exchangeRates != null) {
+                // Uyarı mesajı (farklı para birimleri varsa ve başarıyla dönüştürüldüyse)
+                if (totals.hasMultipleCurrencies && totals.showConversionWarning) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -282,7 +280,7 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Text(
-                                text = "Toplam tutar güncel döviz kuru ile hesaplanmıştır. Kur farkları değişiklik gösterebilir.",
+                                text = "Kur farkı olabilir. Farklı para birimleri dönüştürüldü.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -365,6 +363,7 @@ fun HomeScreen(
 fun EmptyState(
     onAddClick: () -> Unit
 ) {
+    // onAddClick parametresi şu an kullanılmıyor ama API'de tutuluyor
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -507,7 +506,7 @@ fun UpcomingPaymentsSection(subscriptions: List<Subscription>) {
                 val daysUntil = daysBetween(currentDate, nextPaymentDate)
                 
                 // Only include payments within 30 days
-                if (daysUntil >= 0 && daysUntil <= 30) {
+                if (daysUntil in 0..30) {
                     Pair(subscription, daysUntil)
                 } else {
                     null
@@ -553,9 +552,9 @@ fun UpcomingPaymentRow(
     // Her abonelik kendi para birimini gösterir
     val currency = CurrencyManager.getCurrency(subscription.currency)
     
-    val renewText = when {
-        daysUntil == 0 -> stringResource(R.string.payment_today)
-        daysUntil == 1 -> stringResource(R.string.payment_tomorrow)
+    val renewText = when (daysUntil) {
+        0 -> stringResource(R.string.payment_today)
+        1 -> stringResource(R.string.payment_tomorrow)
         else -> stringResource(R.string.payment_in_days, daysUntil)
     }
     
@@ -584,7 +583,7 @@ fun UpcomingPaymentRow(
                 when {
                     !subscription.emoji.isNullOrEmpty() -> {
                         Text(
-                            text = subscription.emoji ?: "",
+                            text = subscription.emoji.orEmpty(),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
