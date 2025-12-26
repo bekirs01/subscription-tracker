@@ -1,6 +1,7 @@
 package com.example.subscriptiontracker.ui.add
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +16,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -160,10 +164,27 @@ fun ServiceCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Logo - Use AsyncImage for URL, fallback to drawable or default icon
+            val isDarkTheme = isSystemInDarkTheme()
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .then(
+                        if (isDarkTheme) {
+                            Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .shadow(
+                                    elevation = 2.dp,
+                                    shape = RoundedCornerShape(12.dp),
+                                    spotColor = Color.White.copy(alpha = 0.1f)
+                                )
+                        } else {
+                            Modifier
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 when {
