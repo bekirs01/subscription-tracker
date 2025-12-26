@@ -326,7 +326,7 @@ fun SubscriptionDetailsScreen(
                                         price = price,
                                         period = selectedPeriod,
                                         renewalDate = startDate,
-                                        logoUrl = existingSubscription?.logoUrl,
+                                        logoUrl = existingSubscription?.logoUrl ?: predefinedService?.logoUrlLight,
                                         logoResId = selectedLogoResId,
                                         emoji = selectedEmoji,
                                         currency = selectedCurrencyCode,

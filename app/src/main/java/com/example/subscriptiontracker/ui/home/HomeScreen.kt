@@ -31,6 +31,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.SubscriptionItem
@@ -357,6 +363,7 @@ fun ActiveSubscriptionCard(
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
+                val isDarkTheme = isSystemInDarkTheme()
                 when {
                     !subscription.emoji.isNullOrEmpty() -> {
                         Text(
@@ -372,6 +379,26 @@ fun ActiveSubscriptionCard(
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Fit
+                        )
+                    }
+                    !subscription.logoUrl.isNullOrEmpty() -> {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(subscription.logoUrl)
+                                .decoderFactory(SvgDecoder.Factory())
+                                .crossfade(true)
+                                .allowHardware(false)
+                                .build(),
+                            contentDescription = subscription.name,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Fit,
+                            colorFilter = if (isDarkTheme) {
+                                ColorFilter.tint(Color.White)
+                            } else {
+                                null
+                            }
                         )
                     }
                     else -> {
@@ -552,6 +579,7 @@ fun UpcomingPaymentCard(
                         .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
+                    val isDarkTheme = isSystemInDarkTheme()
                     when {
                         !subscription.emoji.isNullOrEmpty() -> {
                         Text(
@@ -567,6 +595,26 @@ fun UpcomingPaymentCard(
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(10.dp)),
                                 contentScale = ContentScale.Fit
+                            )
+                        }
+                        !subscription.logoUrl.isNullOrEmpty() -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(subscription.logoUrl)
+                                    .decoderFactory(SvgDecoder.Factory())
+                                    .crossfade(true)
+                                    .allowHardware(false)
+                                    .build(),
+                                contentDescription = subscription.name,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(10.dp)),
+                                contentScale = ContentScale.Fit,
+                                colorFilter = if (isDarkTheme) {
+                                    ColorFilter.tint(Color.White)
+                                } else {
+                                    null
+                                }
                             )
                         }
                         else -> {
@@ -831,6 +879,7 @@ fun UpcomingPaymentRow(
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
+                val isDarkTheme = isSystemInDarkTheme()
                 when {
                     !subscription.emoji.isNullOrEmpty() -> {
                         Text(
@@ -846,6 +895,26 @@ fun UpcomingPaymentRow(
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Fit
+                        )
+                    }
+                    !subscription.logoUrl.isNullOrEmpty() -> {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(subscription.logoUrl)
+                                .decoderFactory(SvgDecoder.Factory())
+                                .crossfade(true)
+                                .allowHardware(false)
+                                .build(),
+                            contentDescription = subscription.name,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Fit,
+                            colorFilter = if (isDarkTheme) {
+                                ColorFilter.tint(Color.White)
+                            } else {
+                                null
+                            }
                         )
                     }
                     else -> {
@@ -1300,6 +1369,7 @@ fun BudgetStatsScreen(
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
+                        val isDarkTheme = isSystemInDarkTheme()
                         when {
                             !subscription.emoji.isNullOrEmpty() -> {
                                 Text(
@@ -1313,6 +1383,24 @@ fun BudgetStatsScreen(
                                     contentDescription = subscription.name,
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Fit
+                                )
+                            }
+                            !subscription.logoUrl.isNullOrEmpty() -> {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(subscription.logoUrl)
+                                        .decoderFactory(SvgDecoder.Factory())
+                                        .crossfade(true)
+                                        .allowHardware(false)
+                                        .build(),
+                                    contentDescription = subscription.name,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit,
+                                    colorFilter = if (isDarkTheme) {
+                                        ColorFilter.tint(Color.White)
+                                    } else {
+                                        null
+                                    }
                                 )
                             }
                             else -> {

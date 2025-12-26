@@ -33,6 +33,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -223,6 +226,7 @@ fun SubscriptionItem(
                     )
                 }
                 !subscription.logoUrl.isNullOrEmpty() -> {
+                    val isDarkTheme = isSystemInDarkTheme()
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(subscription.logoUrl)
@@ -234,7 +238,12 @@ fun SubscriptionItem(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Fit,
+                        colorFilter = if (isDarkTheme) {
+                            ColorFilter.tint(Color.White)
+                        } else {
+                            null
+                        }
                     )
                 }
                 else -> {
