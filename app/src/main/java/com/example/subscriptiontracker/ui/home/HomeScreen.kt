@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Brush
@@ -23,9 +22,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,7 +40,6 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
-import com.example.subscriptiontracker.SubscriptionItem
 import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.data.fx.ExchangeRateRepository
@@ -59,12 +54,11 @@ data class TotalCostResult(
     val showConversionWarning: Boolean
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     subscriptions: List<Subscription>,
     onSubscriptionsChanged: (List<Subscription>) -> Unit,
-    onNavigateToSettings: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     onNavigateToChat: () -> Unit = {},
     onNavigateToStats: () -> Unit = {},
     onAddSubscription: () -> Unit,
@@ -332,7 +326,7 @@ fun ActiveSubscriptionsRow(
 fun ActiveSubscriptionCard(
     subscription: Subscription,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    @Suppress("UNUSED_PARAMETER") onDelete: () -> Unit
 ) {
     val currency = CurrencyManager.getCurrency(subscription.currency)
     val monthlyPrice = remember(subscription) {
@@ -375,7 +369,7 @@ fun ActiveSubscriptionCard(
                 when {
                     !subscription.emoji.isNullOrEmpty() -> {
                         Text(
-                            text = subscription.emoji ?: "",
+                            text = subscription.emoji!!,
                             style = MaterialTheme.typography.displaySmall
                         )
                     }
@@ -591,7 +585,7 @@ fun UpcomingPaymentCard(
                     when {
                         !subscription.emoji.isNullOrEmpty() -> {
                         Text(
-                                text = subscription.emoji ?: "",
+                                text = subscription.emoji!!,
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -673,13 +667,13 @@ fun UpcomingPaymentCard(
 fun EmptyState(
     onAddClick: () -> Unit
 ) {
-    // Pulse animasyonu için infinite transition (scale 0.96-1.04, 2600ms)
+    // Pulse animasyonu için infinite transition (daha hafif: scale 0.98-1.02, 4000ms - yavaş breathing)
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.04f,
+        initialValue = 0.98f,
+        targetValue = 1.02f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = FastOutSlowInEasing),
+            animation = tween(4000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
@@ -707,21 +701,46 @@ fun EmptyState(
     )
     val arrowOffset = (arrowBounce * 7f).dp // 0-7dp arası bounce
     
-    // Arka plan glow için (hafif radial gradient)
+    // Arka plan renkleri (mevcut tema renklerinden)
     val isDarkTheme = isSystemInDarkTheme()
-    val glowColor = if (isDarkTheme) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
+    
+    // Arka plan için hafif gradient (statik, animasyonsuz)
+    val backgroundGradient = if (isDarkTheme) {
+        Brush.radialGradient(
+            colors = listOf(
+                surfaceVariantColor.copy(alpha = 0.15f),
+                surfaceColor
+            ),
+            radius = 800f
+        )
     } else {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+        Brush.radialGradient(
+            colors = listOf(
+                primaryColor.copy(alpha = 0.03f),
+                surfaceColor
+            ),
+            radius = 800f
+        )
+    }
+    
+    // Arka plan glow için (hafif radial gradient)
+    val glowColor = if (isDarkTheme) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f)
+    } else {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
     }
     
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(backgroundGradient)
             .clickable(onClick = onAddClick),
         contentAlignment = Alignment.Center
     ) {
-        // Arka plan glow (hafif radial gradient)
+        // Arka plan glow (hafif radial gradient - statik)
         Box(
             modifier = Modifier
                 .size(300.dp)
@@ -848,6 +867,7 @@ fun SegmentedButton(
 }
 
 @Composable
+@Suppress("UNUSED")
 fun UpcomingPaymentsSection(subscriptions: List<Subscription>) {
     // Helper function to parse date string to Calendar
     fun parseDateString(dateString: String): Calendar? {
@@ -978,7 +998,7 @@ fun UpcomingPaymentRow(
                 when {
                     !subscription.emoji.isNullOrEmpty() -> {
                         Text(
-                            text = subscription.emoji ?: "",
+                            text = subscription.emoji!!,
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -1468,7 +1488,7 @@ fun BudgetStatsScreen(
                         when {
                             !subscription.emoji.isNullOrEmpty() -> {
                                 Text(
-                                    text = subscription.emoji ?: "",
+                                    text = subscription.emoji!!,
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
