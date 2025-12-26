@@ -42,6 +42,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.items
@@ -52,6 +58,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.draw.alpha
 import java.util.Locale
 import androidx.datastore.preferences.core.edit
@@ -131,6 +138,11 @@ fun SettingsScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var showAddDayDialog by rememberSaveable { mutableStateOf(false) }
     var selectedDayInDialog by rememberSaveable { mutableStateOf(1) }
+    
+    // Premium geri bildirim state'leri
+    var isSaving by remember { mutableStateOf(false) }
+    var isPremiumSectionCollapsed by remember { mutableStateOf(false) }
+    var showPremiumFeedback by remember { mutableStateOf(false) }
     
     // TimePicker state
     val timePickerState = rememberTimePickerState(
@@ -481,7 +493,9 @@ fun SettingsScreen(
                     
                     // PREMIUM BÖLÜM
                     Card(
-                                            modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(animationSpec = tween(400)),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surface
                         ),
@@ -498,26 +512,61 @@ fun SettingsScreen(
                                 .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Premium Başlık
+                            // Premium Başlık (her zaman görünür)
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = effectivePremium && isPremiumSectionCollapsed) {
+                                        if (effectivePremium) {
+                                            isPremiumSectionCollapsed = false
+                                        }
+                                    },
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Premium Hatırlatıcı Ayarları",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Premium Hatırlatıcı Ayarları",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                // Collapse durumunda ok ikonu göster
+                                if (effectivePremium && isPremiumSectionCollapsed) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                             
-                            // Premium Seçenekler
+                            // Premium Seçenekler (collapse edilebilir)
+                            AnimatedVisibility(
+                                visible = effectivePremium && !isPremiumSectionCollapsed,
+                                enter = fadeIn(tween(300)) + slideInVertically(
+                                    initialOffsetY = { -it / 2 },
+                                    animationSpec = tween(400)
+                                ),
+                                exit = fadeOut(tween(300)) + slideOutVertically(
+                                    targetOffsetY = { -it / 2 },
+                                    animationSpec = tween(400)
+                                )
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
                             if (effectivePremium) {
                                 // Hızlı Seçim: 3 gün ve 1 gün kala hatırlat (Chip'ler)
                                 Row(
@@ -741,8 +790,12 @@ fun SettingsScreen(
                                         }
                                     }
                                             }
-                                        } else {
-                                // Premium kapalıyken: Kilitli görünüm (mevcut davranış)
+                                         }
+                                }
+                            }
+                            
+                            // Premium kapalıyken: Kilitli görünüm (mevcut davranış)
+                            if (!effectivePremium) {
                                 PremiumReminderOption(
                                     label = "3 gün kala hatırlat",
                                     isEnabled = false,
@@ -818,7 +871,10 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {
-                                            scope.launch {
+                            scope.launch {
+                                // Loading state başlat
+                                isSaving = true
+                                
                                 // Premium reminder ayarlarını kaydet
                                 savePremiumReminderSettings(
                                     context = context,
@@ -828,13 +884,24 @@ fun SettingsScreen(
                                     multiEnabled = multipleReminderEnabled
                                 )
                                 
-                                // Snackbar göster
-                                snackbarHostState.showSnackbar(
-                                    message = "Hatırlatıcı ayarları kaydedildi",
-                                    duration = SnackbarDuration.Short
-                                )
+                                // Kısa bekleme (animasyon için)
+                                kotlinx.coroutines.delay(300)
+                                
+                                // Bölümü collapse et
+                                isPremiumSectionCollapsed = true
+                                
+                                // Premium geri bildirim göster
+                                showPremiumFeedback = true
+                                
+                                // Loading state bitir
+                                isSaving = false
+                                
+                                // Geri bildirimi 2 saniye sonra kapat
+                                kotlinx.coroutines.delay(2000)
+                                showPremiumFeedback = false
                             }
                         },
+                        enabled = !isSaving,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 16.dp),
@@ -842,12 +909,70 @@ fun SettingsScreen(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        Text(
-                            text = "Kaydet",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Kaydediliyor...",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Text(
+                                text = "Kaydet",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
+                }
+            }
+        }
+        
+        // Premium Geri Bildirim (Snackbar yerine)
+        AnimatedVisibility(
+            visible = showPremiumFeedback,
+            enter = fadeIn(tween(300)) + slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(400)
+            ),
+            exit = fadeOut(tween(300)) + slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(400)
+            )
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Ayarlar kaydedildi",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 }
             }
         }
