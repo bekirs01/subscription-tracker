@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Subtracky</string>
+    <string name="app_name">PayFlow</string>
     
     <!-- Ana Ekran -->
-    <string name="app_title">Subtracky</string>
+    <string name="app_title">PayFlow</string>
     <string name="premium">Premium</string>
     <string name="subscriptions_tab">Abonelikler</string>
     <string name="subscriptions_title">Aboneliklerim</string>

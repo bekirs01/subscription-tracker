@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Subtracky</string>
+    <string name="app_name">PayFlow</string>
     
     <!-- Home Screen -->
-    <string name="app_title">Subtracky</string>
+    <string name="app_title">PayFlow</string>
     <string name="premium">Premium</string>
     <string name="subscriptions_tab">Abonnements</string>
     <string name="subscriptions_title">Meine Abonnements</string>

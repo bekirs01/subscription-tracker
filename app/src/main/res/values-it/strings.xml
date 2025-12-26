@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Subtracky</string>
-    <string name="app_title">Subtracky</string>
+    <string name="app_name">PayFlow</string>
+    <string name="app_title">PayFlow</string>
     <string name="premium">Premium</string>
     <string name="subscriptions_tab">Abbonamenti</string>
     <string name="subscriptions_title">I miei abbonamenti</string>
