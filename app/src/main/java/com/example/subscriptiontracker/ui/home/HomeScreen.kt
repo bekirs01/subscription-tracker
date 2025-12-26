@@ -13,8 +13,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.Icons
@@ -34,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -147,8 +152,8 @@ fun HomeScreen(
         )
         if (subscriptions.isEmpty()) {
             // Boş durumda içeriği ekranın tam ortasında göster
-            Box(
-                modifier = Modifier
+                        Box(
+                            modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
@@ -204,7 +209,7 @@ fun HomeHeader(
         color = MaterialTheme.colorScheme.surface
     ) {
         Row(
-            modifier = Modifier
+                            modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp)
@@ -299,7 +304,7 @@ fun ActiveSubscriptionsRow(
     onEditSubscription: (Int) -> Unit,
     onDeleteSubscription: (Int) -> Unit
 ) {
-    Column(
+        Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
@@ -340,7 +345,7 @@ fun ActiveSubscriptionCard(
     }
     
     Card(
-        modifier = Modifier
+            modifier = Modifier
             .width(140.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
@@ -352,9 +357,9 @@ fun ActiveSubscriptionCard(
         )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -456,7 +461,7 @@ fun UpcomingPaymentsList(
                     set(Calendar.SECOND, 0)
                     set(Calendar.MILLISECOND, 0)
                 }
-            } else {
+                    } else {
                 null
             }
         } catch (e: Exception) {
@@ -589,7 +594,7 @@ fun UpcomingPaymentCard(
                                 text = subscription.emoji ?: "",
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        }
+                    }
                         subscription.logoResId != null -> {
                             Image(
                                 painter = painterResource(id = subscription.logoResId),
@@ -668,21 +673,80 @@ fun UpcomingPaymentCard(
 fun EmptyState(
     onAddClick: () -> Unit
 ) {
+    // Pulse animasyonu için infinite transition (scale 0.96-1.04, 2600ms)
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    
+    // Metin animasyonları için (ilk açılışta 1 kez)
+    var titleVisible by remember { mutableStateOf(false) }
+    var subtitleVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        titleVisible = true
+        kotlinx.coroutines.delay(200)
+        subtitleVisible = true
+    }
+    
+    // Ok ikonu için bounce animasyonu (6-8px, yavaş, loop)
+    val arrowBounce by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "arrowBounce"
+    )
+    val arrowOffset = (arrowBounce * 7f).dp // 0-7dp arası bounce
+    
+    // Arka plan glow için (hafif radial gradient)
+    val isDarkTheme = isSystemInDarkTheme()
+    val glowColor = if (isDarkTheme) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+    } else {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .clickable(onClick = onAddClick),
         contentAlignment = Alignment.Center
     ) {
+        // Arka plan glow (hafif radial gradient)
+        Box(
+            modifier = Modifier
+                .size(300.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor,
+                            Color.Transparent
+                        ),
+                        radius = 300f
+                    ),
+                    shape = CircleShape
+                )
+        )
+        
         Column(
             modifier = Modifier.padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Illustration placeholder
+            // + İkonu (pulse animasyonlu)
             Box(
                 modifier = Modifier
                     .size(120.dp)
+                    .scale(pulseScale)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
@@ -695,23 +759,47 @@ fun EmptyState(
                 )
             }
             
-            Text(
-                text = stringResource(R.string.no_subscriptions_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
+            // Başlık (fade + slideUp, ilk açılışta 1 kez)
+            AnimatedVisibility(
+                visible = titleVisible,
+                enter = fadeIn(animationSpec = tween(400)) + slideInVertically(
+                    initialOffsetY = { it / 2 },
+                    animationSpec = tween(400, easing = FastOutSlowInEasing)
+                ),
+                exit = ExitTransition.None
+            ) {
+                Text(
+                    text = stringResource(R.string.no_subscriptions_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
             
-            Text(
-                text = stringResource(R.string.no_subscriptions_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Alt başlık (200ms gecikmeli fade + slideUp)
+            AnimatedVisibility(
+                visible = subtitleVisible,
+                enter = fadeIn(
+                    animationSpec = tween(400, delayMillis = 200)
+                ) + slideInVertically(
+                    initialOffsetY = { it / 2 },
+                    animationSpec = tween(400, delayMillis = 200, easing = FastOutSlowInEasing)
+                ),
+                exit = ExitTransition.None
+            ) {
+                Text(
+                    text = stringResource(R.string.no_subscriptions_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             
-            // Down arrow pointing to Add button
+            // Aşağı ok (vertical bounce animasyonlu)
             Icon(
                 Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier
+                    .size(32.dp)
+                    .offset(y = arrowOffset),
                 tint = MaterialTheme.colorScheme.primary
             )
         }
