@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,13 +85,34 @@ fun SettingsScreen(
     // Developer switch açıksa premium aktif sayılır
     val effectivePremium = isPremium || developerPremiumTest
     
-    // Premium Reminder Settings State
-    var selectedReminderDays by rememberSaveable { mutableStateOf(mutableSetOf(3)) } // Varsayılan: 3 gün seçili
+    // Set<Int> için custom Saver (List<Int> olarak kaydet)
+    val reminderDaysSaver = remember {
+        Saver<Set<Int>, List<Int>>(
+            save = { it.toList() },
+            restore = { it.toSet() }
+        )
+    }
+    
+    // Premium Reminder Settings State - Tek bir Set<Int> olarak tutulacak
+    var reminderDays by rememberSaveable(stateSaver = reminderDaysSaver) { 
+        mutableStateOf(setOf(3)) // Varsayılan: Premium açıkken 3 gün seçili
+    }
+    
+    // Premium kapalıyken reminderDays'i sıfırla, açıkken varsayılan değere getir
+    LaunchedEffect(effectivePremium) {
+        if (!effectivePremium) {
+            // Premium kapalıyken state'i temizle (ama kaydetme, sadece UI için)
+        } else if (reminderDays.isEmpty()) {
+            // Premium açıldığında ve boşsa varsayılan değeri ayarla
+            reminderDays = setOf(3)
+        }
+    }
+    
     var reminderTime by rememberSaveable { mutableStateOf(Pair(9, 0)) } // Varsayılan: 09:00
     var multiReminderEnabled by rememberSaveable { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-    var showAddDayDialog by remember { mutableStateOf(false) }
-    var customReminderDays by rememberSaveable { mutableStateOf(mutableSetOf<Int>()) }
+    var showAddDayDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedDayInDialog by rememberSaveable { mutableStateOf(1) }
     
     // TimePicker state
     val timePickerState = rememberTimePickerState(
@@ -98,11 +120,6 @@ fun SettingsScreen(
         initialMinute = reminderTime.second,
         is24Hour = true
     )
-    
-    // Tüm seçili günleri birleştir (senkronizasyon için)
-    val allSelectedDays = remember(selectedReminderDays, customReminderDays) {
-        (selectedReminderDays + customReminderDays).toSet()
-    }
     
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
@@ -394,7 +411,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.Start,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
+                                    Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
@@ -446,7 +463,7 @@ fun SettingsScreen(
                     
                     // PREMIUM BÖLÜM
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surface
                         ),
@@ -484,77 +501,48 @@ fun SettingsScreen(
                             
                             // Premium Seçenekler
                             if (effectivePremium) {
-                                // 3 gün kala hatırlat - Checkbox
+                                // Hızlı Seçim: 3 gün ve 1 gün kala hatırlat (Chip'ler)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = "3 gün kala hatırlat",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = if (3 in selectedReminderDays) FontWeight.Medium else FontWeight.Normal
-                                        )
-                                    }
-                                    Checkbox(
-                                        checked = 3 in selectedReminderDays,
-                                        onCheckedChange = {
-                                            if (it) {
-                                                selectedReminderDays.add(3)
-                                            } else {
-                                                selectedReminderDays.remove(3)
-                                            }
-                                        }
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
                                     )
-                                }
-                                
-                                // 1 gün kala hatırlat - Checkbox
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = "1 gün kala hatırlat",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = if (1 in selectedReminderDays) FontWeight.Medium else FontWeight.Normal
-                                        )
-                                    }
-                                    Checkbox(
-                                        checked = 1 in selectedReminderDays,
-                                        onCheckedChange = {
-                                            if (it) {
-                                                selectedReminderDays.add(1)
+                                    Text(
+                                        text = "Hızlı seçim:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    // 3 gün chip
+                                    FilterChip(
+                                        selected = 3 in reminderDays,
+                                        onClick = {
+                                            reminderDays = if (3 in reminderDays) {
+                                                reminderDays - 3
                                             } else {
-                                                selectedReminderDays.remove(1)
+                                                reminderDays + 3
                                             }
-                                        }
+                                        },
+                                        label = { Text("3 gün") }
+                                    )
+                                    // 1 gün chip
+                                    FilterChip(
+                                        selected = 1 in reminderDays,
+                                        onClick = {
+                                            reminderDays = if (1 in reminderDays) {
+                                                reminderDays - 1
+                                            } else {
+                                                reminderDays + 1
+                                            }
+                                        },
+                                        label = { Text("1 gün") }
                                     )
                                 }
                                 
@@ -564,13 +552,13 @@ fun SettingsScreen(
                                         .fillMaxWidth()
                                         .clickable { showTimePicker = true }
                                         .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                         Icon(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
@@ -578,7 +566,7 @@ fun SettingsScreen(
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Column {
-                                            Text(
+                                                Text(
                                                 text = "Bildirim saati",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurface
@@ -604,9 +592,9 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
+                                                    Icon(
                                             imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
+                                                        contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
@@ -663,17 +651,12 @@ fun SettingsScreen(
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Checkbox(
-                                                    checked = day in allSelectedDays,
+                                                    checked = day in reminderDays,
                                                     onCheckedChange = {
-                                                        if (it) {
-                                                            if (day in listOf(1, 3)) {
-                                                                selectedReminderDays.add(day)
-                                                            } else {
-                                                                customReminderDays.add(day)
-                                                            }
+                                                        reminderDays = if (it) {
+                                                            reminderDays + day
                                                         } else {
-                                                            selectedReminderDays.remove(day)
-                                                            customReminderDays.remove(day)
+                                                            reminderDays - day
                                                         }
                                                     }
                                                 )
@@ -698,7 +681,7 @@ fun SettingsScreen(
                                         }
                                         
                                         // Seçili günlerin listesi (Chip'ler)
-                                        if (allSelectedDays.isNotEmpty()) {
+                                        if (reminderDays.isNotEmpty()) {
                                             Column(
                                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
@@ -712,11 +695,10 @@ fun SettingsScreen(
                                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                                 ) {
-                                                    allSelectedDays.forEach { day ->
+                                                    reminderDays.sorted().forEach { day ->
                                                         AssistChip(
-                                                            onClick = {
-                                                                selectedReminderDays.remove(day)
-                                                                customReminderDays.remove(day)
+                                    onClick = {
+                                                                reminderDays = reminderDays - day
                                                             },
                                                             label = {
                                                                 Row(
@@ -737,8 +719,8 @@ fun SettingsScreen(
                                             }
                                         }
                                     }
-                                }
-                            } else {
+                                            }
+                                        } else {
                                 // Premium kapalıyken: Kilitli görünüm (mevcut davranış)
                                 PremiumReminderOption(
                                     label = "3 gün kala hatırlat",
@@ -845,10 +827,6 @@ fun SettingsScreen(
     
     // "+ Gün ekle" Dialog
     if (showAddDayDialog && effectivePremium) {
-        var selectedDay by remember { mutableStateOf(1) }
-        val allSelectedDaysForDialog = remember(selectedReminderDays, customReminderDays) {
-            (selectedReminderDays + customReminderDays).toSet()
-        }
         AlertDialog(
             onDismissRequest = { showAddDayDialog = false },
             title = { Text("Gün Ekle") },
@@ -862,35 +840,37 @@ fun SettingsScreen(
                     ) {
                         items(30) { index ->
                             val day = index + 1
+                            val isSelected = selectedDayInDialog == day
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { selectedDay = day }
+                                    .clickable { selectedDayInDialog = day }
                                     .padding(vertical = 8.dp, horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = "$day gün",
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                                 )
-                                if (selectedDay == day) {
+                                if (isSelected) {
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary
                                     )
-                                }
-                            }
                         }
                     }
                 }
+            }
+        }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (selectedDay !in allSelectedDaysForDialog) {
-                            customReminderDays.add(selectedDay)
+                        if (selectedDayInDialog !in reminderDays && selectedDayInDialog in 1..30) {
+                            reminderDays = reminderDays + selectedDayInDialog
                         }
                         showAddDayDialog = false
                     }
