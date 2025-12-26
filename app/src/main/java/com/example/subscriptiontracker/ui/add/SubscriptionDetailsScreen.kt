@@ -344,15 +344,16 @@ fun SubscriptionDetailsScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Logo selector (only for custom, or show logo for predefined, or show existing logo/emoji in edit mode)
-            if (existingSubscription != null) {
+            item {
+                if (existingSubscription != null) {
                 // Edit mode: show existing logo or emoji (clickable to change emoji if custom)
                 Card(
                     modifier = Modifier
@@ -506,10 +507,12 @@ fun SubscriptionDetailsScreen(
                         }
                     }
                 }
+                }
             }
             
             // Name Field
-            OutlinedTextField(
+            item {
+                OutlinedTextField(
                 value = name,
                 onValueChange = { 
                     name = it
@@ -522,15 +525,19 @@ fun SubscriptionDetailsScreen(
                 supportingText = nameError?.let { { Text(it) } },
                 shape = MaterialTheme.shapes.medium
             )
+            }
             
             // Billing Period Selection
-            Text(
-                text = stringResource(R.string.select_period_first),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            Box {
+            item {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.select_period_first),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Box {
                 OutlinedTextField(
                     value = if (selectedPeriod == Period.MONTHLY) stringResource(R.string.monthly) else stringResource(R.string.yearly),
                     onValueChange = {},
@@ -574,13 +581,16 @@ fun SubscriptionDetailsScreen(
                         }
                     )
                 }
+                }
+            }
             }
             
             // Price Section: Amount + Currency
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                 Text(
                     text = stringResource(R.string.price),
                     style = MaterialTheme.typography.labelMedium,
@@ -640,9 +650,11 @@ fun SubscriptionDetailsScreen(
                     )
                 }
             }
+            }
             
             // Start Date Field
-            OutlinedTextField(
+            item {
+                OutlinedTextField(
                 value = startDate,
                 onValueChange = { },
                 label = { Text(stringResource(R.string.start_date)) },
@@ -668,9 +680,11 @@ fun SubscriptionDetailsScreen(
                     }
                 }
             )
+            }
             
             // Notes Field (Optional)
-            OutlinedTextField(
+            item {
+                OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
                 label = { Text(stringResource(R.string.notes)) },
@@ -678,9 +692,11 @@ fun SubscriptionDetailsScreen(
                 maxLines = 3,
                 shape = MaterialTheme.shapes.medium
             )
+            }
             
             // Reminder Selection (like Period selector)
-            Box {
+            item {
+                Box {
                 OutlinedTextField(
                     value = when (selectedReminderDays) {
                         7 -> "7 days before"
@@ -820,6 +836,7 @@ fun SubscriptionDetailsScreen(
                         )
                     )
                 }
+            }
             }
         }
         
