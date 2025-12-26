@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,9 +34,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.foundation.border
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -65,8 +63,16 @@ fun SettingsScreen(
     val notificationsEnabled by notificationsFlow.collectAsState(initial = false)
     val reminderFlow = remember(context) { ReminderManager.getReminderDaysFlow(context) }
     val currentReminderDays by reminderFlow.collectAsState(initial = ReminderManager.defaultReminderDays)
+    
+    // Premium state - Flow'dan gelen değeri dinle
     val premiumFlow = remember(context) { PremiumManager.isPremiumFlow(context) }
-    val isPremium by premiumFlow.collectAsState(initial = false)
+    val premiumFromFlow by premiumFlow.collectAsState(initial = false)
+    var isPremium by rememberSaveable { mutableStateOf(premiumFromFlow) }
+    
+    // Premium durumu değiştiğinde state'i güncelle
+    LaunchedEffect(premiumFromFlow) {
+        isPremium = premiumFromFlow
+    }
     
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
