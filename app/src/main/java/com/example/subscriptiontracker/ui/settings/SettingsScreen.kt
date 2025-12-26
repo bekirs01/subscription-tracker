@@ -114,23 +114,18 @@ fun SettingsScreen(
     // Snackbar için state
     val snackbarHostState = remember { SnackbarHostState() }
     
-    // Kaydedilmiş ayarları yükle
-    LaunchedEffect(Unit) {
+    // Kaydedilmiş ayarları yükle (Premium açıkken)
+    LaunchedEffect(effectivePremium) {
         if (effectivePremium) {
             val (loadedDays, loadedTime, loadedMulti) = loadPremiumReminderSettings(context)
-            selectedReminderDays = loadedDays
+            // Sadece yüklenen değerler varsa kullan, yoksa varsayılanları koru
+            if (loadedDays.isNotEmpty()) {
+                selectedReminderDays = loadedDays
+            } else if (selectedReminderDays.isEmpty()) {
+                selectedReminderDays = setOf(3)
+            }
             notificationTime = loadedTime
             multipleReminderEnabled = loadedMulti
-        }
-    }
-    
-    // Premium kapalıyken selectedReminderDays'i sıfırla, açıkken varsayılan değere getir
-    LaunchedEffect(effectivePremium) {
-        if (!effectivePremium) {
-            // Premium kapalıyken state'i temizle (ama kaydetme, sadece UI için)
-        } else if (selectedReminderDays.isEmpty()) {
-            // Premium açıldığında ve boşsa varsayılan değeri ayarla
-            selectedReminderDays = setOf(3)
         }
     }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -690,11 +685,11 @@ fun SettingsScreen(
                                         Button(
                                             onClick = { showAddDayDialog = true },
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .alpha(1f),
+                                                .fillMaxWidth(),
                                             enabled = true,
                                             colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                             )
                                         ) {
                                             Icon(
@@ -723,7 +718,7 @@ fun SettingsScreen(
                                                 ) {
                                                     selectedReminderDays.sorted().forEach { day ->
                                                         AssistChip(
-                                                            onClick = {
+                                    onClick = {
                                                                 selectedReminderDays = selectedReminderDays - day
                                                             },
                                                             label = {
@@ -823,7 +818,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {
-                            scope.launch {
+                                            scope.launch {
                                 // Premium reminder ayarlarını kaydet
                                 savePremiumReminderSettings(
                                     context = context,
