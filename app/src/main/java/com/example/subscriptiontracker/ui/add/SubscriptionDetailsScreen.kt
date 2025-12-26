@@ -21,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -28,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -414,11 +417,14 @@ fun SubscriptionDetailsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
+                        val isDarkTheme = isSystemInDarkTheme()
                         when {
-                            !predefinedService.logoUrl.isNullOrEmpty() -> {
+                            // Dark mode: use logoUrlLight with white colorFilter to make it white
+                            // Light mode: use logoUrlLight as is (original dark/colored version)
+                            !predefinedService.logoUrlLight.isNullOrEmpty() -> {
                                 AsyncImage(
                                     model = ImageRequest.Builder(LocalContext.current)
-                                        .data(predefinedService.logoUrl)
+                                        .data(predefinedService.logoUrlLight)
                                         .decoderFactory(SvgDecoder.Factory())
                                         .crossfade(true)
                                         .allowHardware(false)
@@ -427,7 +433,12 @@ fun SubscriptionDetailsScreen(
                                     modifier = Modifier
                                         .size(80.dp)
                                         .clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Fit
+                                    contentScale = ContentScale.Fit,
+                                    colorFilter = if (isDarkTheme) {
+                                        ColorFilter.tint(Color.White)
+                                    } else {
+                                        null
+                                    }
                                 )
                             }
                             predefinedService.drawableResId != null -> {

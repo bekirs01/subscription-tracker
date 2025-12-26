@@ -64,7 +64,8 @@ data class Subscription(
 data class PopularService(
     val id: String,
     val name: String,
-    val logoUrl: String,
+    val logoUrlLight: String,
+    val logoUrlDark: String? = null, // Dark mode logo (white/light version)
     val category: String
 )
 

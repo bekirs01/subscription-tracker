@@ -11,11 +11,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.isSystemInDarkTheme
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -153,7 +156,7 @@ fun SubscriptionSetupScreen(
                                         price = price,
                                         period = selectedPeriod,
                                         renewalDate = renewalDate,
-                                        logoUrl = service.logoUrl,
+                                        logoUrl = service.logoUrlLight,
                                         currency = selectedCurrency
                                     )
                                 )
@@ -189,9 +192,10 @@ fun SubscriptionSetupScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
+                    val isDarkTheme = isSystemInDarkTheme()
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(service.logoUrl)
+                            .data(service.logoUrlLight)
                             .decoderFactory(SvgDecoder.Factory())
                             .crossfade(true)
                             .allowHardware(false)
@@ -201,7 +205,12 @@ fun SubscriptionSetupScreen(
                             .fillMaxSize()
                             .padding(24.dp)
                             .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Fit,
+                        colorFilter = if (isDarkTheme) {
+                            ColorFilter.tint(Color.White)
+                        } else {
+                            null
+                        }
                     )
                 }
             }

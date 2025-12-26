@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -188,17 +189,24 @@ fun ServiceCard(
                 contentAlignment = Alignment.Center
             ) {
                 when {
-                    !service.logoUrl.isNullOrEmpty() -> {
+                    // Dark mode: use logoUrlLight with white colorFilter to make it white
+                    // Light mode: use logoUrlLight as is (original dark/colored version)
+                    !service.logoUrlLight.isNullOrEmpty() -> {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(service.logoUrl)
+                                .data(service.logoUrlLight)
                                 .decoderFactory(SvgDecoder.Factory())
                                 .crossfade(true)
                                 .allowHardware(false)
                                 .build(),
                             contentDescription = service.name,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                            contentScale = ContentScale.Fit,
+                            colorFilter = if (isDarkTheme) {
+                                ColorFilter.tint(Color.White)
+                            } else {
+                                null
+                            }
                         )
                     }
                     service.drawableResId != null -> {
