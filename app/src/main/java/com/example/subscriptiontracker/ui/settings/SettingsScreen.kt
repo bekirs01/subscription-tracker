@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.size
 import com.example.subscriptiontracker.R
 import android.Manifest
 import android.os.Build
@@ -31,8 +30,10 @@ import com.example.subscriptiontracker.utils.ReminderManager
 import com.example.subscriptiontracker.utils.ThemeManager
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -40,14 +41,21 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.AssistChip
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onThemeChanged: () -> Unit = {},
     onLanguageChanged: () -> Unit = {},
-    onNavigateToPremium: () -> Unit = {},
-    onNavigateBack: () -> Unit = {}
+    onNavigateToPremium: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -61,9 +69,6 @@ fun SettingsScreen(
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
     val notificationsFlow = remember(context) { NotificationManager.getNotificationsEnabledFlow(context) }
     val notificationsEnabled by notificationsFlow.collectAsState(initial = false)
-    val reminderFlow = remember(context) { ReminderManager.getReminderDaysFlow(context) }
-    val currentReminderDays by reminderFlow.collectAsState(initial = ReminderManager.defaultReminderDays)
-    
     // Premium state - Flow'dan gelen değeri dinle
     val premiumFlow = remember(context) { PremiumManager.isPremiumFlow(context) }
     val premiumFromFlow by premiumFlow.collectAsState(initial = false)
@@ -78,6 +83,26 @@ fun SettingsScreen(
     var developerPremiumTest by rememberSaveable { mutableStateOf(false) }
     // Developer switch açıksa premium aktif sayılır
     val effectivePremium = isPremium || developerPremiumTest
+    
+    // Premium Reminder Settings State
+    var selectedReminderDays by rememberSaveable { mutableStateOf(mutableSetOf(3)) } // Varsayılan: 3 gün seçili
+    var reminderTime by rememberSaveable { mutableStateOf(Pair(9, 0)) } // Varsayılan: 09:00
+    var multiReminderEnabled by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var showAddDayDialog by remember { mutableStateOf(false) }
+    var customReminderDays by rememberSaveable { mutableStateOf(mutableSetOf<Int>()) }
+    
+    // TimePicker state
+    val timePickerState = rememberTimePickerState(
+        initialHour = reminderTime.first,
+        initialMinute = reminderTime.second,
+        is24Hour = true
+    )
+    
+    // Tüm seçili günleri birleştir (senkronizasyon için)
+    val allSelectedDays = remember(selectedReminderDays, customReminderDays) {
+        (selectedReminderDays + customReminderDays).toSet()
+    }
     
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
@@ -458,57 +483,291 @@ fun SettingsScreen(
                             }
                             
                             // Premium Seçenekler
-                            PremiumReminderOption(
-                                label = "3 gün kala hatırlat",
-                                isEnabled = effectivePremium,
-                                isSelected = currentReminderDays == 3 && effectivePremium,
-                                onClick = {
-                                    if (effectivePremium) {
-                                        scope.launch {
-                                            ReminderManager.saveReminderDays(context, 3)
+                            if (effectivePremium) {
+                                // 3 gün kala hatırlat - Checkbox
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "3 gün kala hatırlat",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (3 in selectedReminderDays) FontWeight.Medium else FontWeight.Normal
+                                        )
+                                    }
+                                    Checkbox(
+                                        checked = 3 in selectedReminderDays,
+                                        onCheckedChange = {
+                                            if (it) {
+                                                selectedReminderDays.add(3)
+                                            } else {
+                                                selectedReminderDays.remove(3)
+                                            }
                                         }
-                                    } else {
-                                        onNavigateToPremium()
-                                    }
+                                    )
                                 }
-                            )
-                            
-                            PremiumReminderOption(
-                                label = "1 gün kala hatırlat",
-                                isEnabled = effectivePremium,
-                                isSelected = currentReminderDays == 1 && effectivePremium,
-                                onClick = {
-                                    if (effectivePremium) {
-                                        scope.launch {
-                                            ReminderManager.saveReminderDays(context, 1)
+                                
+                                // 1 gün kala hatırlat - Checkbox
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "1 gün kala hatırlat",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (1 in selectedReminderDays) FontWeight.Medium else FontWeight.Normal
+                                        )
+                                    }
+                                    Checkbox(
+                                        checked = 1 in selectedReminderDays,
+                                        onCheckedChange = {
+                                            if (it) {
+                                                selectedReminderDays.add(1)
+                                            } else {
+                                                selectedReminderDays.remove(1)
+                                            }
                                         }
-                                    } else {
-                                        onNavigateToPremium()
+                                    )
+                                }
+                                
+                                // Bildirim saati seç - TimePicker
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showTimePicker = true }
+                                        .padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Column {
+                                            Text(
+                                                text = "Bildirim saati",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = String.format("%02d:%02d", reminderTime.first, reminderTime.second),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
-                            )
-                            
-                            PremiumReminderOption(
-                                label = "Bildirim saati seç",
-                                isEnabled = effectivePremium,
-                                isSelected = false,
-                                onClick = {
-                                    if (!effectivePremium) {
-                                        onNavigateToPremium()
+                                
+                                // Birden fazla hatırlatma al - Switch
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "Birden fazla hatırlatma al",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Switch(
+                                        checked = multiReminderEnabled,
+                                        onCheckedChange = { multiReminderEnabled = it }
+                                    )
+                                }
+                                
+                                // Ek hatırlatmalar alanı (sadece switch AÇIKKEN)
+                                AnimatedVisibility(visible = multiReminderEnabled) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp, start = 8.dp, end = 8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Başlık ve Açıklama
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "Ek hatırlatmalar (Premium)",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = "Birden fazla günü işaretleyebilir, ek gün ekleyebilirsiniz.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        
+                                        // Checkbox listesi: 1, 2, 3, 5, 7 gün
+                                        val standardDays = listOf(1, 2, 3, 5, 7)
+                                        standardDays.forEach { day ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 4.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "$day gün kala hatırlat",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Checkbox(
+                                                    checked = day in allSelectedDays,
+                                                    onCheckedChange = {
+                                                        if (it) {
+                                                            if (day in listOf(1, 3)) {
+                                                                selectedReminderDays.add(day)
+                                                            } else {
+                                                                customReminderDays.add(day)
+                                                            }
+                                                        } else {
+                                                            selectedReminderDays.remove(day)
+                                                            customReminderDays.remove(day)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                        
+                                        // "+ Gün ekle" butonu
+                                        Button(
+                                            onClick = { showAddDayDialog = true },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Gün ekle")
+                                        }
+                                        
+                                        // Seçili günlerin listesi (Chip'ler)
+                                        if (allSelectedDays.isNotEmpty()) {
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Seçili günler:",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                FlowRow(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    allSelectedDays.forEach { day ->
+                                                        AssistChip(
+                                                            onClick = {
+                                                                selectedReminderDays.remove(day)
+                                                                customReminderDays.remove(day)
+                                                            },
+                                                            label = {
+                                                                Row(
+                                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                                    verticalAlignment = Alignment.CenterVertically
+                                                                ) {
+                                                                    Text("$day gün")
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Close,
+                                                                        contentDescription = "Sil",
+                                                                        modifier = Modifier.size(16.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
-                            )
-                            
-                            PremiumReminderOption(
-                                label = "Birden fazla hatırlatma al",
-                                isEnabled = effectivePremium,
-                                isSelected = false,
-                                onClick = {
-                                    if (!effectivePremium) {
-                                        onNavigateToPremium()
-                                    }
-                                }
-                            )
+                            } else {
+                                // Premium kapalıyken: Kilitli görünüm (mevcut davranış)
+                                PremiumReminderOption(
+                                    label = "3 gün kala hatırlat",
+                                    isEnabled = false,
+                                    isSelected = false,
+                                    onClick = { onNavigateToPremium() }
+                                )
+                                
+                                PremiumReminderOption(
+                                    label = "1 gün kala hatırlat",
+                                    isEnabled = false,
+                                    isSelected = false,
+                                    onClick = { onNavigateToPremium() }
+                                )
+                                
+                                PremiumReminderOption(
+                                    label = "Bildirim saati seç",
+                                    isEnabled = false,
+                                    isSelected = false,
+                                    onClick = { onNavigateToPremium() }
+                                )
+                                
+                                PremiumReminderOption(
+                                    label = "Birden fazla hatırlatma al",
+                                    isEnabled = false,
+                                    isSelected = false,
+                                    onClick = { onNavigateToPremium() }
+                                )
+                            }
                         }
                     }
                     
@@ -550,6 +809,101 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+    
+    // TimePicker Dialog (Premium aktifken)
+    if (showTimePicker && effectivePremium) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Bildirim Saati Seç") },
+            text = {
+                TimePicker(
+                    state = timePickerState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialSelectedContentColor = MaterialTheme.colorScheme.primary,
+                        clockDialColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        reminderTime = Pair(timePickerState.hour, timePickerState.minute)
+                        showTimePicker = false
+                    }
+                ) {
+                    Text("Tamam")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+    
+    // "+ Gün ekle" Dialog
+    if (showAddDayDialog && effectivePremium) {
+        var selectedDay by remember { mutableStateOf(1) }
+        val allSelectedDaysForDialog = remember(selectedReminderDays, customReminderDays) {
+            (selectedReminderDays + customReminderDays).toSet()
+        }
+        AlertDialog(
+            onDismissRequest = { showAddDayDialog = false },
+            title = { Text("Gün Ekle") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("1-30 arası bir gün seçin:")
+                    LazyColumn(
+                        modifier = Modifier.height(200.dp)
+                    ) {
+                        items(30) { index ->
+                            val day = index + 1
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedDay = day }
+                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "$day gün",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                if (selectedDay == day) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (selectedDay !in allSelectedDaysForDialog) {
+                            customReminderDays.add(selectedDay)
+                        }
+                        showAddDayDialog = false
+                    }
+                ) {
+                    Text("Ekle")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDayDialog = false }) {
+                    Text("İptal")
+                }
+            }
+        )
     }
     
     // Premium Feature Dialog
@@ -719,7 +1073,7 @@ fun PremiumBannerCard(
                     }
                 }
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)

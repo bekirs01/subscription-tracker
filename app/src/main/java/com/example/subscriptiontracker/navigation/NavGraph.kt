@@ -130,8 +130,7 @@ fun NavGraph(
             SettingsScreen(
                 onThemeChanged = onThemeChanged,
                 onLanguageChanged = onLanguageChanged,
-                onNavigateToPremium = { navController.navigate(Screen.Premium.route) },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateToPremium = { navController.navigate(Screen.Premium.route) }
             )
         }
         
