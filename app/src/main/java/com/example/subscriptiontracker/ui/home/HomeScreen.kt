@@ -82,55 +82,58 @@ fun HomeScreen(
     
     // Calculate total monthly cost - TÜM abonelikleri base currency'ye dönüştürerek topla
     val totals = remember(subscriptions, currentCurrency, fxState) {
-        val currencies = subscriptions.map { it.currency }.distinct()
-        val hasMultiple = currencies.size > 1
-        
-        if (!hasMultiple) {
-            // TEK para birimi varsa: direkt topla
-            val total = subscriptions.sumOf { subscription ->
-                val price = subscription.price.toDoubleOrNull() ?: 0.0
-                if (subscription.period == Period.YEARLY) {
-                    price / 12.0
+        when (val currentFxState = fxState) {
+            is FxState.Ready -> {
+                val fx = currentFxState.fx
+                if (fx.base != currentCurrency) {
+                    TotalCostResult(0.0, hasMultipleCurrencies = false, showConversionWarning = false)
                 } else {
-                    price
-                }
-            }
-            TotalCostResult(total, hasMultipleCurrencies = false, showConversionWarning = false)
-        } else {
-            // BİRDEN FAZLA para birimi var
-            when (val currentFxState = fxState) {
-                is FxState.Ready -> {
-                    val fx = currentFxState.fx
-                    if (fx.base != currentCurrency) {
-                        TotalCostResult(0.0, hasMultipleCurrencies = true, showConversionWarning = false)
-                    } else {
-                        var total = 0.0
-                        
-                        subscriptions.forEach { subscription ->
-                            val price = subscription.price.toDoubleOrNull() ?: 0.0
-                            val monthlyPrice = if (subscription.period == Period.YEARLY) {
-                                price / 12.0
-                            } else {
-                                price
-                            }
-                            
-                            if (subscription.currency == currentCurrency) {
-                                total += monthlyPrice
-                            } else {
-                                val fromRate = fx.rates[subscription.currency]
-                                if (fromRate != null && fromRate > 0.0) {
-                                    val baseAmount = monthlyPrice / fromRate
-                                    total += baseAmount
-                                }
-                            }
+                    var total = 0.0
+                    
+                    subscriptions.forEach { subscription ->
+                        val price = subscription.price.toDoubleOrNull() ?: 0.0
+                        val monthlyPrice = if (subscription.period == Period.YEARLY) {
+                            price / 12.0
+                        } else {
+                            price
                         }
                         
-                        TotalCostResult(total, hasMultipleCurrencies = true, showConversionWarning = false)
+                        // Her aboneliği base currency'ye çevir
+                        if (subscription.currency == currentCurrency) {
+                            // Aynı para birimi: direkt ekle
+                            total += monthlyPrice
+                        } else {
+                            // Farklı para birimi: kur ile çevir
+                            val fromRate = fx.rates[subscription.currency]
+                            if (fromRate != null && fromRate > 0.0) {
+                                val baseAmount = monthlyPrice / fromRate
+                                total += baseAmount
+                            }
+                        }
+                    }
+                    
+                    val currencies = subscriptions.map { it.currency }.distinct()
+                    val hasMultiple = currencies.size > 1
+                    TotalCostResult(total, hasMultipleCurrencies = hasMultiple, showConversionWarning = false)
+                }
+            }
+            is FxState.Unavailable, is FxState.Loading -> {
+                // Kur yoksa: sadece base currency ile aynı olanları topla
+                var total = 0.0
+                subscriptions.forEach { subscription ->
+                    if (subscription.currency == currentCurrency) {
+                        val price = subscription.price.toDoubleOrNull() ?: 0.0
+                        val monthlyPrice = if (subscription.period == Period.YEARLY) {
+                            price / 12.0
+                        } else {
+                            price
+                        }
+                        total += monthlyPrice
                     }
                 }
-                is FxState.Unavailable, is FxState.Loading -> {
-                    TotalCostResult(0.0, hasMultipleCurrencies = true, showConversionWarning = false)
-                }
+                val currencies = subscriptions.map { it.currency }.distinct()
+                val hasMultiple = currencies.size > 1
+                TotalCostResult(total, hasMultipleCurrencies = hasMultiple, showConversionWarning = false)
             }
         }
     }
