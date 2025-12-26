@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.Period
@@ -410,14 +414,42 @@ fun SubscriptionDetailsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = predefinedService.drawableResId),
-                            contentDescription = predefinedService.name,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Fit
-                        )
+                        when {
+                            !predefinedService.logoUrl.isNullOrEmpty() -> {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(predefinedService.logoUrl)
+                                        .decoderFactory(SvgDecoder.Factory())
+                                        .crossfade(true)
+                                        .allowHardware(false)
+                                        .build(),
+                                    contentDescription = predefinedService.name,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                            predefinedService.drawableResId != null -> {
+                                Image(
+                                    painter = painterResource(id = predefinedService.drawableResId),
+                                    contentDescription = predefinedService.name,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                            else -> {
+                                // Default icon fallback
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = predefinedService.name,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             } else {
