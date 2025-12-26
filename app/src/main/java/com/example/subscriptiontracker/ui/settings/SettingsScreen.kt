@@ -415,13 +415,13 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Faturalandırma Hatırlatıcısı",
+                            text = stringResource(R.string.billing_reminder_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Abonelik yenilenmeden önce bildirim al",
+                            text = stringResource(R.string.billing_reminder_description),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -450,13 +450,13 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "7 gün kala hatırlat",
+                                    text = stringResource(R.string.reminder_7_days_before),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Bu özellik ücretsizdir",
+                                    text = stringResource(R.string.this_feature_is_free),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -479,7 +479,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Developer Mode: Premium Test",
+                                text = stringResource(R.string.developer_mode_premium_test),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -535,7 +535,7 @@ fun SettingsScreen(
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Text(
-                                        text = "Premium Hatırlatıcı Ayarları",
+                                        text = stringResource(R.string.premium_reminder_settings),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
@@ -583,7 +583,7 @@ fun SettingsScreen(
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Text(
-                                        text = "Hızlı seçim:",
+                                        text = stringResource(R.string.quick_selection),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -597,7 +597,7 @@ fun SettingsScreen(
                                                 selectedReminderDays + 3
                                             }
                                         },
-                                        label = { Text("3 gün") }
+                                        label = { Text(stringResource(R.string.days_3)) }
                                     )
                                     // 1 gün chip
                                     FilterChip(
@@ -609,7 +609,7 @@ fun SettingsScreen(
                                                 selectedReminderDays + 1
                                             }
                                         },
-                                        label = { Text("1 gün") }
+                                        label = { Text(stringResource(R.string.days_1)) }
                                     )
                                 }
                                 
@@ -634,7 +634,7 @@ fun SettingsScreen(
                                         )
                                         Column {
                                                 Text(
-                                                text = "Bildirim saati",
+                                                text = stringResource(R.string.notification_time),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
@@ -666,7 +666,7 @@ fun SettingsScreen(
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Text(
-                                            text = "Birden fazla hatırlatma al",
+                                            text = stringResource(R.string.enable_multiple_reminders),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
@@ -690,13 +690,13 @@ fun SettingsScreen(
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             Text(
-                                                text = "Ek hatırlatmalar (Premium)",
+                                                text = stringResource(R.string.additional_reminders_premium),
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
-                                                text = "Birden fazla günü işaretleyebilir, ek gün ekleyebilirsiniz.",
+                                                text = stringResource(R.string.additional_reminders_description),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -713,7 +713,7 @@ fun SettingsScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text(
-                                                    text = "$day gün kala hatırlat",
+                                                    text = stringResource(R.string.reminder_days_before, day),
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
@@ -747,7 +747,7 @@ fun SettingsScreen(
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Gün ekle")
+                                            Text(stringResource(R.string.add_day))
                                         }
                                         
                                         // Seçili günlerin listesi (Chip'ler)
@@ -756,7 +756,7 @@ fun SettingsScreen(
                                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
                                                 Text(
-                                                    text = "Seçili günler:",
+                                                    text = stringResource(R.string.selected_days),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -775,10 +775,10 @@ fun SettingsScreen(
                                                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                                     verticalAlignment = Alignment.CenterVertically
                                                                 ) {
-                                                                    Text("$day gün")
+                                                                    Text(stringResource(R.string.days_format, day))
                                                                     Icon(
                                                                         imageVector = Icons.Default.Close,
-                                                                        contentDescription = "Sil",
+                                                                        contentDescription = stringResource(R.string.delete),
                                                                         modifier = Modifier.size(16.dp)
                                                                     )
                                                                 }
@@ -797,28 +797,28 @@ fun SettingsScreen(
                             // Premium kapalıyken: Kilitli görünüm (mevcut davranış)
                             if (!effectivePremium) {
                                 PremiumReminderOption(
-                                    label = "3 gün kala hatırlat",
+                                    label = stringResource(R.string.reminder_3_days_before),
                                     isEnabled = false,
                                     isSelected = false,
                                     onClick = { onNavigateToPremium() }
                                 )
                                 
                                 PremiumReminderOption(
-                                    label = "1 gün kala hatırlat",
+                                    label = stringResource(R.string.reminder_1_day_before),
                                     isEnabled = false,
                                     isSelected = false,
                                     onClick = { onNavigateToPremium() }
                                 )
                                 
                                 PremiumReminderOption(
-                                    label = "Bildirim saati seç",
+                                    label = stringResource(R.string.select_notification_time),
                                     isEnabled = false,
                                     isSelected = false,
                                     onClick = { onNavigateToPremium() }
                                 )
                                 
                                 PremiumReminderOption(
-                                    label = "Birden fazla hatırlatma al",
+                                    label = stringResource(R.string.enable_multiple_reminders),
                                     isEnabled = false,
                                     isSelected = false,
                                     onClick = { onNavigateToPremium() }
@@ -842,7 +842,7 @@ fun SettingsScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = "Bildirimleri istediğin gün ve saatte al",
+                                    text = stringResource(R.string.get_notifications_when_you_want),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -854,7 +854,7 @@ fun SettingsScreen(
                                     )
                                 ) {
                                     Text(
-                                        text = "Premium'a Yükselt",
+                                        text = stringResource(R.string.upgrade_to_premium),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -870,8 +870,8 @@ fun SettingsScreen(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
-                        onClick = {
-                            scope.launch {
+                                    onClick = {
+                                            scope.launch {
                                 // Loading state başlat
                                 isSaving = true
                                 
@@ -917,13 +917,13 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Kaydediliyor...",
+                                text = stringResource(R.string.saving),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                        } else {
+                                        } else {
                             Text(
-                                text = "Kaydet",
+                                text = stringResource(R.string.save),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -968,7 +968,7 @@ fun SettingsScreen(
                         modifier = Modifier.size(24.dp)
                     )
                     Text(
-                        text = "Ayarlar kaydedildi",
+                        text = stringResource(R.string.settings_saved),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -988,7 +988,7 @@ fun SettingsScreen(
     if (showTimePicker && effectivePremium) {
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            title = { Text("Bildirim Saati Seç") },
+            title = { Text(stringResource(R.string.select_notification_time_title)) },
             text = {
                 TimePicker(
                     state = timePickerState,
@@ -1005,12 +1005,12 @@ fun SettingsScreen(
                         showTimePicker = false
                     }
                 ) {
-                    Text("Tamam")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showTimePicker = false }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -1020,12 +1020,12 @@ fun SettingsScreen(
     if (showAddDayDialog && effectivePremium) {
         AlertDialog(
             onDismissRequest = { showAddDayDialog = false },
-            title = { Text("Gün Ekle") },
+            title = { Text(stringResource(R.string.add_day_title)) },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text("1-30 arası bir gün seçin:")
+                    Text(stringResource(R.string.select_day_between_1_30))
                     LazyColumn(
                         modifier = Modifier.height(200.dp)
                     ) {
@@ -1041,7 +1041,7 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "$day gün",
+                                    text = stringResource(R.string.days_format, day),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                                 )
@@ -1066,12 +1066,12 @@ fun SettingsScreen(
                         showAddDayDialog = false
                     }
                 ) {
-                    Text("Ekle")
+                    Text(stringResource(R.string.add))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddDayDialog = false }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

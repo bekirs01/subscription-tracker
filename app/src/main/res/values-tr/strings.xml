@@ -89,4 +89,40 @@
     <string name="send">Gönder</string>
     <string name="questions_remaining">Kalan soru</string>
     <string name="ai_daily_limit_reached">Günlük soru limitinize ulaştınız. Premium\'a geçerek sınırsız soru sorabilirsiniz.</string>
+    
+    <!-- Billing Reminder Settings -->
+    <string name="billing_reminder_title">Faturalandırma Hatırlatıcısı</string>
+    <string name="billing_reminder_description">Abonelik yenilenmeden önce bildirim al</string>
+    <string name="reminder_7_days_before">7 gün kala hatırlat</string>
+    <string name="this_feature_is_free">Bu özellik ücretsizdir</string>
+    <string name="developer_mode_premium_test">Developer Mode: Premium Test</string>
+    <string name="premium_reminder_settings">Premium Hatırlatıcı Ayarları</string>
+    <string name="quick_selection">Hızlı seçim:</string>
+    <string name="days_3">3 gün</string>
+    <string name="days_1">1 gün</string>
+    <string name="notification_time">Bildirim saati</string>
+    <string name="enable_multiple_reminders">Birden fazla hatırlatma al</string>
+    <string name="additional_reminders_premium">Ek hatırlatmalar (Premium)</string>
+    <string name="additional_reminders_description">Birden fazla günü işaretleyebilir, ek gün ekleyebilirsiniz.</string>
+    <string name="reminder_days_before">%1$d gün kala hatırlat</string>
+    <string name="add_day">Gün ekle</string>
+    <string name="selected_days">Seçili günler:</string>
+    <string name="days_format">%1$d gün</string>
+    <string name="delete">Sil</string>
+    <string name="reminder_3_days_before">3 gün kala hatırlat</string>
+    <string name="reminder_1_day_before">1 gün kala hatırlat</string>
+    <string name="select_notification_time">Bildirim saati seç</string>
+    <string name="get_notifications_when_you_want">Bildirimleri istediğin gün ve saatte al</string>
+    <string name="saving">Kaydediliyor...</string>
+    <string name="settings_saved">Ayarlar kaydedildi</string>
+    <string name="select_notification_time_title">Bildirim Saati Seç</string>
+    <string name="ok">Tamam</string>
+    <string name="add_day_title">Gün Ekle</string>
+    <string name="select_day_between_1_30">1-30 arası bir gün seçin:</string>
+    <string name="add">Ekle</string>
+    
+    <!-- Chat Screen -->
+    <string name="yes">Evet</string>
+    <string name="no">Hayır</string>
+    <string name="cancelled_anything_else">Tamam, iptal edildi. Başka bir şey yapmamı ister misiniz?</string>
 </resources>

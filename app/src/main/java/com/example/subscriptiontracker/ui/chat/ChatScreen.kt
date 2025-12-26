@@ -48,6 +48,7 @@ fun ChatScreen(
     
     // İlk mesaj için string resource'u al
     val welcomeMessage = stringResource(R.string.ai_welcome_message)
+    val cancelledMessage = stringResource(R.string.cancelled_anything_else)
     
     // İlk mesaj
     LaunchedEffect(Unit) {
@@ -108,21 +109,21 @@ fun ChatScreen(
                         }
                     }
                 ) {
-                    Text("Evet")
+                    Text(stringResource(R.string.yes))
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
                         messages = messages + ChatMessage(
-                            text = "Tamam, iptal edildi. Başka bir şey yapmamı ister misiniz?",
+                            text = cancelledMessage,
                             isUser = false
                         )
                         showConfirmationDialog = false
                         pendingAction = null
                     }
                 ) {
-                    Text("Hayır")
+                    Text(stringResource(R.string.no))
                 }
             }
         )

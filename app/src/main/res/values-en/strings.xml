@@ -46,5 +46,84 @@
     <string name="nav_home">Home</string>
     <string name="nav_add">Add</string>
     <string name="nav_settings">Settings</string>
+    
+    <!-- Validation Errors -->
+    <string name="error_name_invalid">Name can only contain letters and spaces</string>
+    <string name="error_price_invalid">Price must be a valid number</string>
+    <string name="error_date_format">Date must be in format yyyy-MM-dd</string>
+    <string name="error_date_invalid">Please enter a valid date</string>
+    
+    <!-- Settings Sections -->
+    <string name="section_appearance">Appearance</string>
+    <string name="section_language">Language</string>
+    <string name="section_currency">Currency</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="section_billing_reminder">Billing Cycle Reminder</string>
+    <string name="currency">Currency</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_description">Enable notifications for subscription renewals</string>
+    <string name="select_period_first">First, select a billing period</string>
+    <string name="billing_reminder_7_days">7 days before</string>
+    <string name="billing_reminder_3_days">3 days before</string>
+    <string name="billing_reminder_1_day">1 day before</string>
+    <string name="free_label">FREE</string>
+    <string name="premium_label">PREMIUM</string>
+    <string name="premium_feature_title">Premium Feature</string>
+    <string name="premium_feature_description">1 and 3 day reminders are for Premium users.</string>
+    <string name="upgrade_to_premium">Upgrade to Premium</string>
+    <string name="premium_title">Premium</string>
+    <string name="premium_description">Unlock reminders, advanced settings and more</string>
+    <string name="get_premium">Get Premium</string>
+    <string name="back">Back</string>
+    <string name="popular">Popular</string>
+    <string name="premium_banner_subtitle">Unlock all features</string>
+    <string name="premium_active">Premium Active</string>
+    <string name="premium_active_title">You have Premium</string>
+    <string name="premium_active_subtitle">All features unlocked</string>
+    
+    <!-- AI Assistant -->
+    <string name="ai_assistant_title">AI Assistant</string>
+    <string name="ai_assistant">AI Assistant</string>
+    <string name="ai_welcome_message">Hello! I am your AI Assistant. I can help you with in-app topics. How can I help you?</string>
+    <string name="ai_ask_question">Type your question...</string>
+    <string name="send">Send</string>
+    <string name="questions_remaining">Questions remaining</string>
+    <string name="ai_daily_limit_reached">You have reached your daily question limit. You can ask unlimited questions by upgrading to Premium.</string>
+    
+    <!-- Billing Reminder Settings -->
+    <string name="billing_reminder_title">Billing Reminder</string>
+    <string name="billing_reminder_description">Get notified before subscription renewal</string>
+    <string name="reminder_7_days_before">Remind 7 days before</string>
+    <string name="this_feature_is_free">This feature is free</string>
+    <string name="developer_mode_premium_test">Developer Mode: Premium Test</string>
+    <string name="premium_reminder_settings">Premium Reminder Settings</string>
+    <string name="quick_selection">Quick selection:</string>
+    <string name="days_3">3 days</string>
+    <string name="days_1">1 day</string>
+    <string name="notification_time">Notification time</string>
+    <string name="enable_multiple_reminders">Enable multiple reminders</string>
+    <string name="additional_reminders_premium">Additional Reminders (Premium)</string>
+    <string name="additional_reminders_description">You can select multiple days and add custom days.</string>
+    <string name="reminder_days_before">Remind %1$d days before</string>
+    <string name="add_day">Add Day</string>
+    <string name="selected_days">Selected days:</string>
+    <string name="days_format">%1$d days</string>
+    <string name="delete">Delete</string>
+    <string name="reminder_3_days_before">Remind 3 days before</string>
+    <string name="reminder_1_day_before">Remind 1 day before</string>
+    <string name="select_notification_time">Select notification time</string>
+    <string name="get_notifications_when_you_want">Get notifications on the day and time you want</string>
+    <string name="saving">Saving...</string>
+    <string name="settings_saved">Settings saved</string>
+    <string name="select_notification_time_title">Select Notification Time</string>
+    <string name="ok">OK</string>
+    <string name="add_day_title">Add Day</string>
+    <string name="select_day_between_1_30">Select a day between 1-30:</string>
+    <string name="add">Add</string>
+    
+    <!-- Chat Screen -->
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="cancelled_anything_else">OK, cancelled. Would you like me to do something else?</string>
 </resources>
 

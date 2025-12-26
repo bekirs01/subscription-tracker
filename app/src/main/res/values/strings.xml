@@ -105,4 +105,40 @@
     <string name="send">Send</string>
     <string name="questions_remaining">Questions remaining</string>
     <string name="ai_daily_limit_reached">Günlük soru limitinize ulaştınız. Premium\'a geçerek sınırsız soru sorabilirsiniz.</string>
+    
+    <!-- Billing Reminder Settings -->
+    <string name="billing_reminder_title">Billing Reminder</string>
+    <string name="billing_reminder_description">Get notified before subscription renewal</string>
+    <string name="reminder_7_days_before">Remind 7 days before</string>
+    <string name="this_feature_is_free">This feature is free</string>
+    <string name="developer_mode_premium_test">Developer Mode: Premium Test</string>
+    <string name="premium_reminder_settings">Premium Reminder Settings</string>
+    <string name="quick_selection">Quick selection:</string>
+    <string name="days_3">3 days</string>
+    <string name="days_1">1 day</string>
+    <string name="notification_time">Notification time</string>
+    <string name="enable_multiple_reminders">Enable multiple reminders</string>
+    <string name="additional_reminders_premium">Additional Reminders (Premium)</string>
+    <string name="additional_reminders_description">You can select multiple days and add custom days.</string>
+    <string name="reminder_days_before">Remind %1$d days before</string>
+    <string name="add_day">Add Day</string>
+    <string name="selected_days">Selected days:</string>
+    <string name="days_format">%1$d days</string>
+    <string name="delete">Delete</string>
+    <string name="reminder_3_days_before">Remind 3 days before</string>
+    <string name="reminder_1_day_before">Remind 1 day before</string>
+    <string name="select_notification_time">Select notification time</string>
+    <string name="get_notifications_when_you_want">Get notifications on the day and time you want</string>
+    <string name="saving">Saving...</string>
+    <string name="settings_saved">Settings saved</string>
+    <string name="select_notification_time_title">Select Notification Time</string>
+    <string name="ok">OK</string>
+    <string name="add_day_title">Add Day</string>
+    <string name="select_day_between_1_30">Select a day between 1-30:</string>
+    <string name="add">Add</string>
+    
+    <!-- Chat Screen -->
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="cancelled_anything_else">OK, cancelled. Would you like me to do something else?</string>
 </resources>
