@@ -27,7 +27,6 @@ import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
 import com.example.subscriptiontracker.utils.NotificationManager
 import com.example.subscriptiontracker.utils.PremiumManager
-import com.example.subscriptiontracker.utils.ReminderManager
 import com.example.subscriptiontracker.utils.ThemeManager
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
@@ -50,6 +49,17 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.draw.alpha
+import java.util.Locale
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import com.example.subscriptiontracker.utils.appDataStore
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -93,31 +103,44 @@ fun SettingsScreen(
         )
     }
     
-    // Premium Reminder Settings State - Tek bir Set<Int> olarak tutulacak
-    var reminderDays by rememberSaveable(stateSaver = reminderDaysSaver) { 
+    // Premium Reminder Settings State - Set<Int> olarak tutulacak (immutable, recomposition için)
+    var selectedReminderDays by rememberSaveable(stateSaver = reminderDaysSaver) { 
         mutableStateOf(setOf(3)) // Varsayılan: Premium açıkken 3 gün seçili
     }
     
-    // Premium kapalıyken reminderDays'i sıfırla, açıkken varsayılan değere getir
-    LaunchedEffect(effectivePremium) {
-        if (!effectivePremium) {
-            // Premium kapalıyken state'i temizle (ama kaydetme, sadece UI için)
-        } else if (reminderDays.isEmpty()) {
-            // Premium açıldığında ve boşsa varsayılan değeri ayarla
-            reminderDays = setOf(3)
+    var notificationTime by rememberSaveable { mutableStateOf(Pair(9, 0)) } // Varsayılan: 09:00
+    var multipleReminderEnabled by rememberSaveable { mutableStateOf(false) }
+    
+    // Snackbar için state
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Kaydedilmiş ayarları yükle
+    LaunchedEffect(Unit) {
+        if (effectivePremium) {
+            val (loadedDays, loadedTime, loadedMulti) = loadPremiumReminderSettings(context)
+            selectedReminderDays = loadedDays
+            notificationTime = loadedTime
+            multipleReminderEnabled = loadedMulti
         }
     }
     
-    var reminderTime by rememberSaveable { mutableStateOf(Pair(9, 0)) } // Varsayılan: 09:00
-    var multiReminderEnabled by rememberSaveable { mutableStateOf(false) }
+    // Premium kapalıyken selectedReminderDays'i sıfırla, açıkken varsayılan değere getir
+    LaunchedEffect(effectivePremium) {
+        if (!effectivePremium) {
+            // Premium kapalıyken state'i temizle (ama kaydetme, sadece UI için)
+        } else if (selectedReminderDays.isEmpty()) {
+            // Premium açıldığında ve boşsa varsayılan değeri ayarla
+            selectedReminderDays = setOf(3)
+        }
+    }
     var showTimePicker by remember { mutableStateOf(false) }
     var showAddDayDialog by rememberSaveable { mutableStateOf(false) }
     var selectedDayInDialog by rememberSaveable { mutableStateOf(1) }
     
     // TimePicker state
     val timePickerState = rememberTimePickerState(
-        initialHour = reminderTime.first,
-        initialMinute = reminderTime.second,
+        initialHour = notificationTime.first,
+        initialMinute = notificationTime.second,
         is24Hour = true
     )
     
@@ -522,24 +545,24 @@ fun SettingsScreen(
                                     )
                                     // 3 gün chip
                                     FilterChip(
-                                        selected = 3 in reminderDays,
+                                        selected = 3 in selectedReminderDays,
                                         onClick = {
-                                            reminderDays = if (3 in reminderDays) {
-                                                reminderDays - 3
+                                            selectedReminderDays = if (3 in selectedReminderDays) {
+                                                selectedReminderDays - 3
                                             } else {
-                                                reminderDays + 3
+                                                selectedReminderDays + 3
                                             }
                                         },
                                         label = { Text("3 gün") }
                                     )
                                     // 1 gün chip
                                     FilterChip(
-                                        selected = 1 in reminderDays,
+                                        selected = 1 in selectedReminderDays,
                                         onClick = {
-                                            reminderDays = if (1 in reminderDays) {
-                                                reminderDays - 1
+                                            selectedReminderDays = if (1 in selectedReminderDays) {
+                                                selectedReminderDays - 1
                                             } else {
-                                                reminderDays + 1
+                                                selectedReminderDays + 1
                                             }
                                         },
                                         label = { Text("1 gün") }
@@ -572,7 +595,7 @@ fun SettingsScreen(
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = String.format("%02d:%02d", reminderTime.first, reminderTime.second),
+                                                text = String.format(Locale.getDefault(), "%02d:%02d", notificationTime.first, notificationTime.second),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -605,13 +628,13 @@ fun SettingsScreen(
                                         )
                                     }
                                     Switch(
-                                        checked = multiReminderEnabled,
-                                        onCheckedChange = { multiReminderEnabled = it }
+                                        checked = multipleReminderEnabled,
+                                        onCheckedChange = { multipleReminderEnabled = it }
                                     )
                                 }
                                 
                                 // Ek hatırlatmalar alanı (sadece switch AÇIKKEN)
-                                AnimatedVisibility(visible = multiReminderEnabled) {
+                                AnimatedVisibility(visible = multipleReminderEnabled) {
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -651,22 +674,25 @@ fun SettingsScreen(
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Checkbox(
-                                                    checked = day in reminderDays,
+                                                    checked = day in selectedReminderDays,
                                                     onCheckedChange = {
-                                                        reminderDays = if (it) {
-                                                            reminderDays + day
+                                                        selectedReminderDays = if (it) {
+                                                            selectedReminderDays + day
                                                         } else {
-                                                            reminderDays - day
+                                                            selectedReminderDays - day
                                                         }
                                                     }
                                                 )
                                             }
                                         }
                                         
-                                        // "+ Gün ekle" butonu
+                                        // "+ Gün ekle" butonu - HER ZAMAN AKTİF
                                         Button(
                                             onClick = { showAddDayDialog = true },
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .alpha(1f),
+                                            enabled = true,
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer
                                             )
@@ -681,7 +707,7 @@ fun SettingsScreen(
                                         }
                                         
                                         // Seçili günlerin listesi (Chip'ler)
-                                        if (reminderDays.isNotEmpty()) {
+                                        if (selectedReminderDays.isNotEmpty()) {
                                             Column(
                                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
@@ -695,10 +721,10 @@ fun SettingsScreen(
                                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                                 ) {
-                                                    reminderDays.sorted().forEach { day ->
+                                                    selectedReminderDays.sorted().forEach { day ->
                                                         AssistChip(
-                                    onClick = {
-                                                                reminderDays = reminderDays - day
+                                                            onClick = {
+                                                                selectedReminderDays = selectedReminderDays - day
                                                             },
                                                             label = {
                                                                 Row(
@@ -790,7 +816,52 @@ fun SettingsScreen(
                     }
                 }
             }
+            
+            // Kaydet Butonu (Premium açıkken) - LazyColumn item scope'u içinde
+            if (effectivePremium) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                // Premium reminder ayarlarını kaydet
+                                savePremiumReminderSettings(
+                                    context = context,
+                                    selectedDays = selectedReminderDays,
+                                    notifyHour = notificationTime.first,
+                                    notifyMinute = notificationTime.second,
+                                    multiEnabled = multipleReminderEnabled
+                                )
+                                
+                                // Snackbar göster
+                                snackbarHostState.showSnackbar(
+                                    message = "Hatırlatıcı ayarları kaydedildi",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(
+                            text = "Kaydet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
+        
+        // Snackbar Host
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.padding(16.dp)
+        )
     }
     
     // TimePicker Dialog (Premium aktifken)
@@ -810,7 +881,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        reminderTime = Pair(timePickerState.hour, timePickerState.minute)
+                        notificationTime = Pair(timePickerState.hour, timePickerState.minute)
                         showTimePicker = false
                     }
                 ) {
@@ -869,8 +940,8 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (selectedDayInDialog !in reminderDays && selectedDayInDialog in 1..30) {
-                            reminderDays = reminderDays + selectedDayInDialog
+                        if (selectedDayInDialog !in selectedReminderDays && selectedDayInDialog in 1..30) {
+                            selectedReminderDays = selectedReminderDays + selectedDayInDialog
                         }
                         showAddDayDialog = false
                     }
@@ -1118,4 +1189,41 @@ fun PremiumReminderOption(
             )
         }
     }
+}
+
+// Premium Reminder Settings Persistence Helper
+private object PremiumReminderSettingsKeys {
+    val MULTI_ENABLED = booleanPreferencesKey("premium_multi_enabled")
+    val SELECTED_DAYS = stringPreferencesKey("premium_selected_days")
+    val NOTIFY_HOUR = intPreferencesKey("premium_notify_hour")
+    val NOTIFY_MINUTE = intPreferencesKey("premium_notify_minute")
+}
+
+private suspend fun savePremiumReminderSettings(
+    context: android.content.Context,
+    selectedDays: Set<Int>,
+    notifyHour: Int,
+    notifyMinute: Int,
+    multiEnabled: Boolean
+) {
+    context.appDataStore.edit { preferences ->
+        preferences[PremiumReminderSettingsKeys.MULTI_ENABLED] = multiEnabled
+        preferences[PremiumReminderSettingsKeys.SELECTED_DAYS] = selectedDays.sorted().joinToString(",")
+        preferences[PremiumReminderSettingsKeys.NOTIFY_HOUR] = notifyHour
+        preferences[PremiumReminderSettingsKeys.NOTIFY_MINUTE] = notifyMinute
+    }
+}
+
+private suspend fun loadPremiumReminderSettings(context: android.content.Context): Triple<Set<Int>, Pair<Int, Int>, Boolean> {
+    val preferences = context.appDataStore.data.first()
+    val selectedDaysStr = preferences[PremiumReminderSettingsKeys.SELECTED_DAYS] ?: "3"
+    val selectedDays = if (selectedDaysStr.isNotEmpty()) {
+        selectedDaysStr.split(",").mapNotNull { it.toIntOrNull() }.toSet()
+    } else {
+        setOf(3)
+    }
+    val notifyHour = preferences[PremiumReminderSettingsKeys.NOTIFY_HOUR] ?: 9
+    val notifyMinute = preferences[PremiumReminderSettingsKeys.NOTIFY_MINUTE] ?: 0
+    val multiEnabled = preferences[PremiumReminderSettingsKeys.MULTI_ENABLED] ?: false
+    return Triple(selectedDays, Pair(notifyHour, notifyMinute), multiEnabled)
 }
