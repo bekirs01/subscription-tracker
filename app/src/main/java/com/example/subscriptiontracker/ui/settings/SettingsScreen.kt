@@ -74,6 +74,11 @@ fun SettingsScreen(
         isPremium = premiumFromFlow
     }
     
+    // Developer Mode: Premium Test Switch (sadece UI state)
+    var developerPremiumTest by rememberSaveable { mutableStateOf(false) }
+    // Developer switch açıksa premium aktif sayılır
+    val effectivePremium = isPremium || developerPremiumTest
+    
     var themeExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
@@ -387,13 +392,40 @@ fun SettingsScreen(
                         }
                     }
                     
+                    // Developer Mode: Premium Test Switch
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Developer Mode: Premium Test",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Switch(
+                                checked = developerPremiumTest,
+                                onCheckedChange = { developerPremiumTest = it }
+                            )
+                        }
+                    }
+                    
                     // PREMIUM BÖLÜM
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surface
                         ),
-                        border = if (!isPremium) {
+                        border = if (!effectivePremium) {
                             androidx.compose.foundation.BorderStroke(
                                 1.dp,
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
@@ -428,10 +460,10 @@ fun SettingsScreen(
                             // Premium Seçenekler
                             PremiumReminderOption(
                                 label = "3 gün kala hatırlat",
-                                isEnabled = isPremium,
-                                isSelected = currentReminderDays == 3 && isPremium,
+                                isEnabled = effectivePremium,
+                                isSelected = currentReminderDays == 3 && effectivePremium,
                                 onClick = {
-                                    if (isPremium) {
+                                    if (effectivePremium) {
                                         scope.launch {
                                             ReminderManager.saveReminderDays(context, 3)
                                         }
@@ -443,10 +475,10 @@ fun SettingsScreen(
                             
                             PremiumReminderOption(
                                 label = "1 gün kala hatırlat",
-                                isEnabled = isPremium,
-                                isSelected = currentReminderDays == 1 && isPremium,
+                                isEnabled = effectivePremium,
+                                isSelected = currentReminderDays == 1 && effectivePremium,
                                 onClick = {
-                                    if (isPremium) {
+                                    if (effectivePremium) {
                                         scope.launch {
                                             ReminderManager.saveReminderDays(context, 1)
                                         }
@@ -458,10 +490,10 @@ fun SettingsScreen(
                             
                             PremiumReminderOption(
                                 label = "Bildirim saati seç",
-                                isEnabled = isPremium,
+                                isEnabled = effectivePremium,
                                 isSelected = false,
                                 onClick = {
-                                    if (!isPremium) {
+                                    if (!effectivePremium) {
                                         onNavigateToPremium()
                                     }
                                 }
@@ -469,10 +501,10 @@ fun SettingsScreen(
                             
                             PremiumReminderOption(
                                 label = "Birden fazla hatırlatma al",
-                                isEnabled = isPremium,
+                                isEnabled = effectivePremium,
                                 isSelected = false,
                                 onClick = {
-                                    if (!isPremium) {
+                                    if (!effectivePremium) {
                                         onNavigateToPremium()
                                     }
                                 }
@@ -481,7 +513,7 @@ fun SettingsScreen(
                     }
                     
                     // Premium CTA
-                    if (!isPremium) {
+                    if (!effectivePremium) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
