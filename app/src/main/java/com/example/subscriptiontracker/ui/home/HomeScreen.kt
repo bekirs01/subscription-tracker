@@ -644,7 +644,11 @@ fun UpcomingPaymentCard(
                     Text(
                         text = renewText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (daysUntil <= 3) {
+                            Color(0xFFFF0000) // Kırmızı
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }
