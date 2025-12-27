@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,9 +42,16 @@ import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.PeriodManager
+import com.example.subscriptiontracker.utils.PremiumManager
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.AssistChip
 
 // Emoji list for custom subscriptions
 private val emojiList = listOf(
@@ -112,7 +120,7 @@ private fun getMaxDaysInMonth(year: Int, month: Int): Int {
     return calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SubscriptionDetailsScreen(
     predefinedService: ServiceItem? = null, // null if custom
@@ -153,11 +161,26 @@ fun SubscriptionDetailsScreen(
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     
-    // Reminder selection (single choice: 7, 3, or 1 day) - Default: 7 days
-    // Note: Reminder days are not stored in Subscription model, so we use a default of 7
-    // For edit mode, we'll assume 7 days (since it's not persisted)
-    var selectedReminderDays by remember { mutableIntStateOf(7) } // Default: 7 days before
-    var reminderExpanded by remember { mutableStateOf(false) }
+    // Premium state
+    val premiumFlow = remember(context) { PremiumManager.isPremiumFlow(context) }
+    val isPremium by premiumFlow.collectAsState(initial = false)
+    
+    // Bildirimler state
+    var isReminderEnabled by remember { mutableStateOf(true) }
+    var reminderHour by remember { mutableIntStateOf(9) }
+    var reminderMinute by remember { mutableIntStateOf(0) }
+    var selectedReminderDays by remember { mutableStateOf(setOf<Int>(7)) } // PREMIUM: multiple days, default: 7
+    var showTimePicker by remember { mutableStateOf(false) }
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var showAddDayDialog by remember { mutableStateOf(false) }
+    var selectedDayInDialog by remember { mutableIntStateOf(1) }
+    
+    // TimePicker state
+    val timePickerState = rememberTimePickerState(
+        initialHour = reminderHour,
+        initialMinute = reminderMinute,
+        is24Hour = true
+    )
     
     
     // Validation states
@@ -694,149 +717,193 @@ fun SubscriptionDetailsScreen(
             )
             }
             
-            // Reminder Selection (like Period selector)
+            // Bildirimler Bölümü (iOS tarzı)
             item {
-                Box {
-                OutlinedTextField(
-                    value = when (selectedReminderDays) {
-                        7 -> "7 days before"
-                        3 -> "3 days before"
-                        1 -> "1 day before"
-                        else -> "7 days before"
-                    },
-                    onValueChange = {},
-                    label = { Text("Reminder") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { reminderExpanded = true },
-                    readOnly = true,
-                    shape = MaterialTheme.shapes.medium,
-                    trailingIcon = {
-                        IconButton(onClick = { reminderExpanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Başlık
+                        Text(
+                            text = "Bildirimler",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        // Bildirimleri Etkinleştir Switch
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Bildirimleri Etkinleştir",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Switch(
+                                checked = isReminderEnabled,
+                                onCheckedChange = { isReminderEnabled = it }
                             )
                         }
+                        
+                        if (isReminderEnabled) {
+                            // Zaman seçimi - FREE için kilitli
+                            OutlinedTextField(
+                                value = String.format(Locale.getDefault(), "%02d:%02d", reminderHour, reminderMinute),
+                                onValueChange = {},
+                                label = { Text("Zaman") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = isPremium) {
+                                        if (isPremium) {
+                                            showTimePicker = true
+                                        }
+                                    },
+                                readOnly = true,
+                                shape = MaterialTheme.shapes.medium,
+                                enabled = false, // FREE için kilitli
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = { if (isPremium) showTimePicker = true },
+                                        enabled = isPremium
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                            )
+                            
+                            if (!isPremium) {
+                                // FREE: Sadece 7 gün, dropdown kapalı
+                                OutlinedTextField(
+                                    value = "7 gün öncesinde",
+                                    onValueChange = {},
+                                    label = { Text("Şu kadar gün öncesinde bana hatırlat") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    readOnly = true,
+                                    enabled = false,
+                                    shape = MaterialTheme.shapes.medium
+                                )
+                                
+                                // FREE açıklama
+                                Text(
+                                    text = "Premium olmadan sadece 7 gün önceden bildirim alabilirsiniz.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                // PREMIUM: Çoklu gün seçimi
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Hızlı seçim chip'leri
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf(1, 2, 3, 5, 7).forEach { day ->
+                                            FilterChip(
+                                                selected = day in selectedReminderDays,
+                                                onClick = {
+                                                    selectedReminderDays = if (day in selectedReminderDays) {
+                                                        selectedReminderDays - day
+                                                    } else {
+                                                        selectedReminderDays + day
+                                                    }
+                                                },
+                                                label = { 
+                                                    Text(stringResource(R.string.reminder_days_before, day))
+                                                }
+                                            )
+                                        }
+                                        // Gün ekle butonu
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = { showAddDayDialog = true },
+                                            label = { 
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Add,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Text(stringResource(R.string.add_day))
+                                                }
+                                            }
+                                        )
+                                    }
+                                    
+                                    // Seçilen günler (AssistChip'ler)
+                                    if (selectedReminderDays.isNotEmpty()) {
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.selected_days),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            FlowRow(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                selectedReminderDays.sorted().forEach { day ->
+                                                    AssistChip(
+                                                        onClick = {
+                                                            selectedReminderDays = selectedReminderDays - day
+                                                        },
+                                                        label = { 
+                                                            Text(stringResource(R.string.reminder_days_before, day))
+                                                        },
+                                                        trailingIcon = {
+                                                            Icon(
+                                                                Icons.Default.Close,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Premium badge
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "⭐",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = "Premium – Bildirim ayarlarını özelleştirebilirsiniz",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                )
-                DropdownMenu(
-                    expanded = reminderExpanded,
-                    onDismissRequest = { reminderExpanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("7 days before")
-                                if (selectedReminderDays == 7) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            selectedReminderDays = 7
-                            reminderExpanded = false
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = if (selectedReminderDays == 7) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                    )
-                    DropdownMenuItem(
-                        text = { 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("3 days before")
-                                    Text(
-                                        text = "🔒 Premium",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                if (selectedReminderDays == 3) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            selectedReminderDays = 3
-                            reminderExpanded = false
-                            // Navigate to Premium when 3 days reminder is selected
-                            onNavigateToPremium()
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = if (selectedReminderDays == 3) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                    )
-                    DropdownMenuItem(
-                        text = { 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("1 day before")
-                                    Text(
-                                        text = "🔒 Premium",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                if (selectedReminderDays == 1) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            selectedReminderDays = 1
-                            reminderExpanded = false
-                            // Navigate to Premium when 1 day reminder is selected
-                            onNavigateToPremium()
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = if (selectedReminderDays == 1) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                    )
                 }
-            }
             }
         }
         
@@ -908,6 +975,119 @@ fun SubscriptionDetailsScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showCurrencyPicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+        
+        // Time Picker Dialog
+        if (showTimePicker) {
+            AlertDialog(
+                onDismissRequest = { showTimePicker = false },
+                title = {
+                    Text("Zaman Seç")
+                },
+                text = {
+                    TimePicker(
+                        state = timePickerState,
+                        colors = TimePickerDefaults.colors(
+                            clockDialSelectedContentColor = MaterialTheme.colorScheme.primary,
+                            clockDialColor = MaterialTheme.colorScheme.onSurface,
+                            selectorColor = MaterialTheme.colorScheme.primary,
+                            periodSelectorBorderColor = MaterialTheme.colorScheme.outline,
+                            timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            reminderHour = timePickerState.hour
+                            reminderMinute = timePickerState.minute
+                            showTimePicker = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTimePicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+        
+        // Add Day Dialog (PREMIUM)
+        if (showAddDayDialog) {
+            AlertDialog(
+                onDismissRequest = { showAddDayDialog = false },
+                title = {
+                    Text(stringResource(R.string.add_day))
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(stringResource(R.string.select_day_between_1_30))
+                        OutlinedTextField(
+                            value = selectedDayInDialog.toString(),
+                            onValueChange = {
+                                val day = it.toIntOrNull()
+                                if (day != null && day in 1..30) {
+                                    selectedDayInDialog = day
+                                }
+                            },
+                            label = { Text("Gün (1-30)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (selectedDayInDialog in 1..30) {
+                                selectedReminderDays = selectedReminderDays + selectedDayInDialog
+                            }
+                            showAddDayDialog = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAddDayDialog = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+        
+        // Premium Dialog (FREE kullanıcı 7 gün dışı seçmeye çalışırsa)
+        if (showPremiumDialog) {
+            AlertDialog(
+                onDismissRequest = { showPremiumDialog = false },
+                title = {
+                    Text("Premium Özellik")
+                },
+                text = {
+                    Text("Bu özellik Premium'a özeldir. Premium'a yükseltmek ister misiniz?")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showPremiumDialog = false
+                            onNavigateToPremium()
+                        }
+                    ) {
+                        Text("Premium'a Geç")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPremiumDialog = false }) {
                         Text(stringResource(R.string.cancel))
                     }
                 }
