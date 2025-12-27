@@ -42,6 +42,7 @@ import com.example.subscriptiontracker.data.fx.FxState
 import com.example.subscriptiontracker.utils.CurrencyManager
 import java.util.Calendar
 import java.util.Locale
+import kotlin.random.Random
 
 @Composable
 fun StatsScreen(
@@ -178,6 +179,22 @@ fun StatsScreen(
         convertedSubscriptions.sortedByDescending { it.second }.take(3)
     }
     
+    // Yearly cost insight - pick one subscription with stable randomness
+    val yearlyCostInsight: Triple<Subscription, Double, String>? = remember(convertedSubscriptions) {
+        if (convertedSubscriptions.isEmpty()) {
+            null
+        } else {
+            val selectedIndex = Random.nextInt(convertedSubscriptions.size)
+            val (subscription, monthlyAmount) = convertedSubscriptions[selectedIndex]
+            val yearlyCost = monthlyAmount * 12
+            if (yearlyCost > 0) {
+                Triple(subscription, yearlyCost, getComparisonForAmount(yearlyCost))
+            } else {
+                null
+            }
+        }
+    }
+    
     // Screen entry animation
     var screenVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -260,6 +277,26 @@ fun StatsScreen(
                         convertedSubscriptions = convertedSubscriptions,
                         baseCurrencyObj = baseCurrencyObj
                     )
+                }
+            }
+            
+            // Yearly Cost Insight Card
+            if (yearlyCostInsight != null) {
+                item {
+                    AnimatedVisibility(
+                        visible = screenVisible,
+                        enter = fadeIn(animationSpec = tween(600, delayMillis = 350)) + slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(600, delayMillis = 350, easing = FastOutSlowInEasing)
+                        )
+                    ) {
+                        YearlyCostInsightCard(
+                            subscription = yearlyCostInsight.first,
+                            yearlyCost = yearlyCostInsight.second,
+                            comparisonText = yearlyCostInsight.third,
+                            baseCurrencyObj = baseCurrencyObj
+                        )
+                    }
                 }
             }
             
@@ -878,6 +915,86 @@ fun ExpensiveSubscriptionCard(
 }
 
 @Composable
+fun YearlyCostInsightCard(
+    subscription: Subscription,
+    yearlyCost: Double,
+    comparisonText: String,
+    baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                        )
+                    )
+                )
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Title with icon
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "💡",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = "If you keep ${subscription.name} for 1 year",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                // Yearly cost
+                Text(
+                    text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", yearlyCost)} / year",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                // Comparison text
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "With that money, you could buy:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "👉 $comparisonText",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun EmptyStatsState() {
     Box(
         modifier = Modifier
@@ -907,6 +1024,78 @@ fun EmptyStatsState() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
+    }
+}
+
+// Response pool for humorous comparisons
+private data class ComparisonResponse(
+    val minAmount: Double,
+    val maxAmount: Double,
+    val text: String
+)
+
+private val comparisonResponses = listOf(
+    // LOW RANGE (0-1.000)
+    ComparisonResponse(0.0, 50.0, "A nice coffee subscription ☕"),
+    ComparisonResponse(50.0, 100.0, "A few fancy restaurant meals 🍽️"),
+    ComparisonResponse(100.0, 200.0, "A pair of wireless earbuds 🎧"),
+    ComparisonResponse(200.0, 300.0, "A nice dinner for two 🍝"),
+    ComparisonResponse(300.0, 400.0, "A premium gym membership 💪"),
+    ComparisonResponse(400.0, 500.0, "Several cinema nights 🎬"),
+    ComparisonResponse(500.0, 600.0, "A weekend city break 🏙️"),
+    ComparisonResponse(600.0, 700.0, "A quality pair of headphones 🎧"),
+    ComparisonResponse(700.0, 800.0, "A smartwatch ⌚"),
+    ComparisonResponse(800.0, 900.0, "A tablet device 📱"),
+    ComparisonResponse(900.0, 1000.0, "A bicycle 🚲"),
+    
+    // MID RANGE (1.000-5.000)
+    ComparisonResponse(1000.0, 1200.0, "A mid-range smartphone 📱"),
+    ComparisonResponse(1200.0, 1500.0, "A weekend trip to Europe ✈️"),
+    ComparisonResponse(1500.0, 1800.0, "A gaming console + games 🎮"),
+    ComparisonResponse(1800.0, 2000.0, "A premium camera 📷"),
+    ComparisonResponse(2000.0, 2200.0, "A home entertainment system 🎬"),
+    ComparisonResponse(2200.0, 2500.0, "A nice vacation package 🏝️"),
+    ComparisonResponse(2500.0, 2800.0, "A high-end laptop 💻"),
+    ComparisonResponse(2800.0, 3000.0, "A motorcycle 🏍️"),
+    ComparisonResponse(3000.0, 3300.0, "A complete home office setup 🖥️"),
+    ComparisonResponse(3300.0, 3600.0, "A luxury watch ⌚"),
+    ComparisonResponse(3600.0, 4000.0, "A family vacation 🌴"),
+    ComparisonResponse(4000.0, 4500.0, "A used car down payment 🚗"),
+    ComparisonResponse(4500.0, 5000.0, "A professional camera setup 📸"),
+    
+    // HIGH RANGE (5.000-15.000)
+    ComparisonResponse(5000.0, 6000.0, "A premium laptop + accessories 💻"),
+    ComparisonResponse(6000.0, 7000.0, "A long vacation abroad 🏖️"),
+    ComparisonResponse(7000.0, 8000.0, "Half a motorcycle 🏍️"),
+    ComparisonResponse(8000.0, 9000.0, "A used car 🚗"),
+    ComparisonResponse(9000.0, 10000.0, "A home renovation project 🏠"),
+    ComparisonResponse(10000.0, 11000.0, "A full home office setup 🖥️"),
+    ComparisonResponse(11000.0, 12000.0, "A year of rent in some cities 🏠"),
+    ComparisonResponse(12000.0, 13000.0, "A down payment on a car 🚙"),
+    ComparisonResponse(13000.0, 14000.0, "A luxury vacation package ✈️"),
+    ComparisonResponse(14000.0, 15000.0, "A complete home gym 🏋️"),
+    
+    // VERY HIGH RANGE (15.000+)
+    ComparisonResponse(15000.0, 20000.0, "A used car 🚗"),
+    ComparisonResponse(20000.0, 25000.0, "A new car down payment 🚙"),
+    ComparisonResponse(25000.0, 30000.0, "A year of university tuition 🎓"),
+    ComparisonResponse(30000.0, 35000.0, "A small apartment deposit 🏘️"),
+    ComparisonResponse(35000.0, 40000.0, "A luxury car down payment 🏎️"),
+    ComparisonResponse(40000.0, 50000.0, "A year of rent in major cities 🏙️"),
+    ComparisonResponse(50000.0, 60000.0, "A down payment on a house 🏡"),
+    ComparisonResponse(60000.0, 75000.0, "A luxury car 🏎️"),
+    ComparisonResponse(75000.0, 100000.0, "A year of MBA tuition 🎓"),
+    ComparisonResponse(100000.0, Double.MAX_VALUE, "A significant investment portfolio 💰")
+)
+
+private fun getComparisonForAmount(yearlyCost: Double): String {
+    val matchingResponses = comparisonResponses.filter {
+        yearlyCost >= it.minAmount && yearlyCost < it.maxAmount
+    }
+    return if (matchingResponses.isNotEmpty()) {
+        matchingResponses.random().text
+    } else {
+        "Something nice 🎁"
     }
 }
 
