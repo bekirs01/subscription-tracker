@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -207,9 +208,10 @@ fun StatsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .background(MaterialTheme.colorScheme.surface),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Premium Summary Card (Aylık/Yıllık toggle KALDIRILDI)
             item {
@@ -346,51 +348,59 @@ fun PremiumSummaryCard(
     activeCount: Int,
     baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
+        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary
+                .fillMaxWidth(0.9f),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.primaryContainer
+                            )
                         )
                     )
-                )
-                .padding(horizontal = 24.dp, vertical = 28.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.total_spending),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Text(
-                    text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", totalAmount)}",
-                    style = MaterialTheme.typography.displayLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                
-                Text(
-                    text = "$activeCount ${stringResource(R.string.active_subscriptions).lowercase()}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.total_spending),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    Text(
+                        text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", totalAmount)}",
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    
+                    Text(
+                        text = "$activeCount ${stringResource(R.string.active_subscriptions).lowercase()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
     }
@@ -436,11 +446,13 @@ fun SpendingTrendChart(
             
             // Bar Chart - 6 ay göster, yatay scroll ile diğer 6 ay
             val maxAmount = monthlyData.maxOrNull() ?: 1.0
+            val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
+            val currentYear = Calendar.getInstance().get(Calendar.YEAR)
             
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp),
+                    .height(100.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
@@ -452,6 +464,13 @@ fun SpendingTrendChart(
                         animationSpec = tween(800, delayMillis = index * 50, easing = FastOutSlowInEasing),
                         label = "barHeight_$index"
                     )
+                    
+                    // 11 ay önceden başlayarak index'e göre ay hesapla
+                    val monthOffset = 11 - index
+                    val targetCalendar = Calendar.getInstance().apply {
+                        add(Calendar.MONTH, -monthOffset)
+                    }
+                    val monthAbbr = getMonthAbbreviationFromCalendar(targetCalendar)
                     
                     Column(
                         modifier = Modifier
@@ -476,7 +495,7 @@ fun SpendingTrendChart(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = getMonthAbbreviation(11 - index),
+                            text = monthAbbr,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 9.sp
@@ -507,21 +526,22 @@ fun CategoryDistributionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
                 text = stringResource(R.string.category_distribution),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
             
-            // Donut Chart - Daha kalın stroke
+            // Donut Chart - Küçültülmüş
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp),
+                    .height(160.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (categoryTotal > 0 && categoryData.isNotEmpty()) {
@@ -549,7 +569,7 @@ fun CategoryDistributionCard(
                                 startAngle = currentAngle,
                                 sweepAngle = sweepAngle,
                                 useCenter = false,
-                                style = Stroke(width = 60.dp.toPx(), cap = StrokeCap.Round)
+                                style = Stroke(width = 50.dp.toPx(), cap = StrokeCap.Round)
                             )
                             currentAngle += sweepAngle
                         }
@@ -561,22 +581,23 @@ fun CategoryDistributionCard(
                 ) {
                     Text(
                         text = stringResource(R.string.total),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", categoryTotal)}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
             
             // Category List - Renk noktası, % oran, tutar
+            Spacer(modifier = Modifier.height(8.dp))
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 categoryData.forEachIndexed { index, (name, amount) ->
                     val percentage = if (categoryTotal > 0) (amount / categoryTotal * 100).toInt() else 0
@@ -1115,9 +1136,7 @@ private fun calculateNextPaymentDate(
     return nextPayment
 }
 
-private fun getMonthAbbreviation(monthOffset: Int): String {
-    val calendar = Calendar.getInstance()
-    calendar.add(Calendar.MONTH, -monthOffset)
+private fun getMonthAbbreviationFromCalendar(calendar: Calendar): String {
     val month = calendar.get(Calendar.MONTH)
     val months = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
     return if (month in 0..11) months[month] else ""

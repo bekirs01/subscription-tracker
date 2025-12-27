@@ -2,4 +2,9 @@
 <resources>
 
     <style name="Theme.SubscriptionTracker" parent="android:Theme.Material.Light.NoActionBar" />
+    
+    <!-- Splash Screen Theme -->
+    <style name="Theme.SubscriptionTracker.Splash" parent="Theme.SubscriptionTracker">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
 </resources>

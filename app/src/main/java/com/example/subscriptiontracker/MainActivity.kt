@@ -158,17 +158,17 @@ fun AppMainContent() {
         }
     }
     
-    NavGraph(
-        navController = navController,
-        onThemeChanged = {
-            // Tema değişikliği anında uygulanır
-        },
-        onLanguageChanged = {
-            // Dil değişikliği için Activity'yi kesin olarak yeniden başlat
-            val activity = context as? ComponentActivity
-            activity?.recreate()
-        }
-    )
+        NavGraph(
+            navController = navController,
+            onThemeChanged = {
+                // Tema değişikliği anında uygulanır
+            },
+            onLanguageChanged = {
+                // Dil değişikliği için Activity'yi kesin olarak yeniden başlat
+                val activity = context as? ComponentActivity
+                activity?.recreate()
+            }
+        )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -263,11 +263,11 @@ fun SubscriptionItem(
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
-                        ) {
-                            Text(
+        ) {
+            Text(
                                 text = subscription.name.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -284,39 +284,39 @@ fun SubscriptionItem(
                     text = subscription.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Row(
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${currency?.symbol ?: "₺"}${subscription.price}",
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${currency?.symbol ?: "₺"}${subscription.price}",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        Text(
-                            text = if (subscription.period == Period.MONTHLY) 
-                                stringResource(R.string.monthly) 
-                            else 
-                                stringResource(R.string.yearly),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = if (subscription.period == Period.MONTHLY) 
+                            stringResource(R.string.monthly) 
+                        else 
+                            stringResource(R.string.yearly),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
-                Text(
-                    text = "${stringResource(R.string.renewal)}: ${subscription.renewalDate}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+            Text(
+                text = "${stringResource(R.string.renewal)}: ${subscription.renewalDate}",
+                    style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         }
     }
     
