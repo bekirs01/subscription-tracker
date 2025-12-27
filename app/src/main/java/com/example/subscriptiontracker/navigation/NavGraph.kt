@@ -35,6 +35,7 @@ import com.example.subscriptiontracker.ui.add.PopularServicesScreen
 import com.example.subscriptiontracker.ui.add.SubscriptionDetailsScreen
 import com.example.subscriptiontracker.ui.add.ServiceItem
 import com.example.subscriptiontracker.utils.SubscriptionReminderManager
+import com.example.subscriptiontracker.utils.SubscriptionStorageManager
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
@@ -62,12 +63,53 @@ fun NavGraph(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    // Shared subscription state
+    // Shared subscription state - loaded from DataStore on app start
     var subscriptions by remember { mutableStateOf<List<Subscription>>(emptyList()) }
     var nextId by remember { mutableIntStateOf(1) }
     
+    // Load subscriptions and nextId from DataStore on app start
+    LaunchedEffect(Unit) {
+        try {
+            subscriptions = SubscriptionStorageManager.getSubscriptions(context)
+            nextId = SubscriptionStorageManager.getNextId(context)
+            // If no subscriptions exist, ensure nextId is at least 1
+            if (nextId < 1) {
+                nextId = 1
+            }
+        } catch (e: Exception) {
+            // On error, use defaults (empty list, nextId = 1)
+            subscriptions = emptyList()
+            nextId = 1
+        }
+    }
+    
     // Selected service state for navigation
     var selectedService by remember { mutableStateOf<ServiceItem?>(null) }
+    
+    // Save subscriptions to DataStore whenever they change (but not on initial load)
+    var isInitialLoad by remember { mutableStateOf(true) }
+    LaunchedEffect(subscriptions) {
+        if (!isInitialLoad) {
+            try {
+                SubscriptionStorageManager.saveSubscriptions(context, subscriptions)
+            } catch (e: Exception) {
+                // Ignore errors
+            }
+        } else {
+            isInitialLoad = false
+        }
+    }
+    
+    // Save nextId to DataStore whenever it changes (but not on initial load)
+    LaunchedEffect(nextId) {
+        if (!isInitialLoad) {
+            try {
+                SubscriptionStorageManager.saveNextId(context, nextId)
+            } catch (e: Exception) {
+                // Ignore errors
+            }
+        }
+    }
     
     // Reschedule all reminders when subscriptions list changes (e.g., after boot or settings change)
     LaunchedEffect(subscriptions) {
@@ -117,6 +159,7 @@ fun NavGraph(
                         SubscriptionReminderManager.cancelReminders(context, subscriptionId)
                     }
                     subscriptions = subscriptions.filter { it.id != subscriptionId }
+                    // Save to DataStore (handled by LaunchedEffect)
                 }
             )
         }
@@ -170,10 +213,10 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onAddSubscription = { subscription ->
                     // Subscription'ı HomeScreen'e eklemek için state güncelle
-                    // Not: Bu basit bir çözüm, gerçek uygulamada ViewModel veya state management kullanılmalı
                     val newSubscription = subscription.copy(id = nextId)
                     subscriptions = subscriptions + newSubscription
                     nextId++
+                    // Save to DataStore (handled by LaunchedEffect)
                     // Schedule reminders for subscription added from chat (will use saved settings)
                     scope.launch {
                         try {
@@ -217,6 +260,7 @@ fun NavGraph(
                     subscriptions = subscriptions + newSubscription
                     nextId++
                     selectedService = null
+                    // Save to DataStore (handled by LaunchedEffect)
                     // Schedule reminders for new subscription (will use saved settings)
                     scope.launch {
                         try {
@@ -256,6 +300,7 @@ fun NavGraph(
                             it
                         }
                     }
+                    // Save to DataStore (handled by LaunchedEffect)
                     // Update reminders for edited subscription (will use saved settings)
                     scope.launch {
                         try {
