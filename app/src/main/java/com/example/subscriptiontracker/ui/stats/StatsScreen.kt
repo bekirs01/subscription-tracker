@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -96,48 +97,69 @@ fun StatsScreen(
         label = "totalAmount"
     )
     
-    // Last 12 months data for trend chart
-    val monthlyData = remember(convertedSubscriptions) {
+    // Last 12 months data for trend chart - Her ay için aktif aboneliklerin toplamı
+    val monthlyData = remember(convertedSubscriptions, subscriptions) {
         val currentDate = Calendar.getInstance()
-        val months = mutableMapOf<Int, Double>()
+        val months = mutableListOf<Double>()
         
-        // Son 12 ayı hesapla
+        // Son 12 ay için hesapla (0 = bu ay, 11 = 11 ay önce)
         (0..11).forEach { monthOffset ->
-            months[11 - monthOffset] = 0.0
-        }
-        
-        convertedSubscriptions.forEach { (subscription, amount) ->
-            val renewalDate = try {
-                if (subscription.renewalDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
-                    val parts = subscription.renewalDate.split("-")
-                    val year = parts[0].toInt()
-                    val month = parts[1].toInt() - 1
-                    val day = parts[2].toInt()
-                    Calendar.getInstance().apply {
-                        set(Calendar.YEAR, year)
-                        set(Calendar.MONTH, month)
-                        set(Calendar.DAY_OF_MONTH, day)
-                    }
-                } else {
-                    null
-                }
-            } catch (e: Exception) {
-                null
+            var monthTotal = 0.0
+            val targetMonth = Calendar.getInstance().apply {
+                add(Calendar.MONTH, -monthOffset)
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
             
-            if (renewalDate != null) {
-                val nextPayment = calculateNextPaymentDate(renewalDate, subscription.period, currentDate)
-                val monthsDiff = (currentDate.get(Calendar.YEAR) - nextPayment.get(Calendar.YEAR)) * 12 +
-                        (currentDate.get(Calendar.MONTH) - nextPayment.get(Calendar.MONTH))
+            convertedSubscriptions.forEach { (subscription, monthlyAmount) ->
+                val renewalDate = try {
+                    if (subscription.renewalDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+                        val parts = subscription.renewalDate.split("-")
+                        val year = parts[0].toInt()
+                        val month = parts[1].toInt() - 1
+                        val day = parts[2].toInt()
+                        Calendar.getInstance().apply {
+                            set(Calendar.YEAR, year)
+                            set(Calendar.MONTH, month)
+                            set(Calendar.DAY_OF_MONTH, day)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+                    } else {
+                        null
+                    }
+                } catch (e: Exception) {
+                    null
+                }
                 
-                if (monthsDiff in 0..11) {
-                    val monthIndex = 11 - monthsDiff
-                    months[monthIndex] = (months[monthIndex] ?: 0.0) + amount
+                if (renewalDate != null) {
+                    // Bu ay için ödeme var mı kontrol et
+                    var checkDate = renewalDate.clone() as Calendar
+                    while (checkDate.before(targetMonth) || checkDate == targetMonth) {
+                        if (checkDate.get(Calendar.YEAR) == targetMonth.get(Calendar.YEAR) &&
+                            checkDate.get(Calendar.MONTH) == targetMonth.get(Calendar.MONTH)) {
+                            monthTotal += monthlyAmount
+                            break
+                        }
+                        when (subscription.period) {
+                            Period.MONTHLY -> checkDate.add(Calendar.MONTH, 1)
+                            Period.YEARLY -> checkDate.add(Calendar.YEAR, 1)
+                        }
+                        // Sonsuz döngüyü önle
+                        if (checkDate.after(currentDate) && checkDate.after(targetMonth)) break
+                    }
                 }
             }
+            
+            months.add(monthTotal)
         }
         
-        (0..11).map { months[it] ?: 0.0 }
+        months.reversed() // En eski ay ilk sırada (0 index = 11 ay önce, 11 index = bu ay)
     }
     
     // Category data (grouped by subscription name)
@@ -169,8 +191,8 @@ fun StatsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Premium Summary Card (Aylık/Yıllık toggle KALDIRILDI)
             item {
@@ -289,7 +311,7 @@ fun PremiumSummaryCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
@@ -306,7 +328,7 @@ fun PremiumSummaryCard(
                         )
                     )
                 )
-                .padding(32.dp)
+                .padding(horizontal = 24.dp, vertical = 28.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -353,8 +375,8 @@ fun SpendingTrendChart(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -375,16 +397,18 @@ fun SpendingTrendChart(
                 )
             }
             
-            // Bar Chart - Son 12 ay
-            Row(
+            // Bar Chart - 6 ay göster, yatay scroll ile diğer 6 ay
+            val maxAmount = monthlyData.maxOrNull() ?: 1.0
+            
+            LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.Bottom
+                    .height(120.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                val maxAmount = monthlyData.maxOrNull() ?: 1.0
-                monthlyData.forEachIndexed { index, amount ->
+                items(monthlyData.size) { index ->
+                    val amount = monthlyData[index]
                     val heightRatio = if (maxAmount > 0) amount / maxAmount else 0.0
                     val animatedHeight by animateFloatAsState(
                         targetValue = heightRatio.toFloat(),
@@ -394,7 +418,7 @@ fun SpendingTrendChart(
                     
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .width(40.dp)
                             .fillMaxHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom
@@ -403,7 +427,7 @@ fun SpendingTrendChart(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(animatedHeight)
-                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                                 .background(
                                     Brush.verticalGradient(
                                         colors = listOf(
@@ -413,12 +437,12 @@ fun SpendingTrendChart(
                                     )
                                 )
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = getMonthAbbreviation(11 - index),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+                            fontSize = 9.sp
                         )
                     }
                 }
@@ -595,8 +619,8 @@ fun ActiveSubscriptionsSummary(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
