@@ -46,6 +46,7 @@ import com.example.subscriptiontracker.ui.theme.SubscriptionTrackerTheme
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
 import com.example.subscriptiontracker.utils.PeriodManager
+import com.example.subscriptiontracker.utils.PremiumManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -107,6 +108,11 @@ fun AppContent() {
     SubscriptionTrackerTheme {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        
+        // PremiumManager'ı ilk açılışta DataStore'dan yükle
+        LaunchedEffect(Unit) {
+            PremiumManager.initialize(context)
+        }
         
         // Bildirim izni soruldu mu kontrolü
         val hasAskedPermissionFlow = remember {

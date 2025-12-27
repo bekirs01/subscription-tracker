@@ -87,20 +87,11 @@ fun SettingsScreen(
     val currentCurrency by currencyFlow.collectAsState(initial = CurrencyManager.defaultCurrency)
     val notificationsFlow = remember(context) { NotificationManager.getNotificationsEnabledFlow(context) }
     val notificationsEnabled by notificationsFlow.collectAsState(initial = false)
-    // Premium state - Flow'dan gelen değeri dinle
+    // Premium state - TEK KAYNAK: PremiumManager.isPremiumFlow
     val premiumFlow = remember(context) { PremiumManager.isPremiumFlow(context) }
-    val premiumFromFlow by premiumFlow.collectAsState(initial = false)
-    var isPremium by rememberSaveable { mutableStateOf(premiumFromFlow) }
-    
-    // Premium durumu değiştiğinde state'i güncelle
-    LaunchedEffect(premiumFromFlow) {
-        isPremium = premiumFromFlow
-    }
-    
-    // Developer Mode: Premium Test Switch (sadece UI state)
-    var developerPremiumTest by rememberSaveable { mutableStateOf(false) }
-    // Developer switch açıksa premium aktif sayılır
-    val effectivePremium = isPremium || developerPremiumTest
+    val isPremium by premiumFlow.collectAsState(initial = false)
+    // Developer Mode switch artık direkt PremiumManager'a bağlı - local state YOK
+    val effectivePremium = isPremium
     
     // Set<Int> için custom Saver (List<Int> olarak kaydet)
     val reminderDaysSaver = remember {
@@ -485,8 +476,12 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Switch(
-                                checked = developerPremiumTest,
-                                onCheckedChange = { developerPremiumTest = it }
+                                checked = isPremium,
+                                onCheckedChange = { checked ->
+                                    scope.launch {
+                                        PremiumManager.setPremium(context, checked)
+                                    }
+                                }
                             )
                         }
                     }
