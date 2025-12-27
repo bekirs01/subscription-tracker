@@ -1,9 +1,11 @@
 package com.example.subscriptiontracker.ui.stats
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -39,26 +42,20 @@ import com.example.subscriptiontracker.utils.CurrencyManager
 import java.util.Calendar
 import java.util.Locale
 
-enum class StatsPeriod {
-    MONTHLY, YEARLY
-}
-
 @Composable
 fun StatsScreen(
     subscriptions: List<Subscription>,
     baseCurrency: String,
     fxState: FxState,
-    context: android.content.Context
+    @Suppress("UNUSED_PARAMETER") context: android.content.Context
 ) {
-    var selectedPeriod by remember { mutableStateOf(StatsPeriod.MONTHLY) }
-    
     val baseCurrencyObj = CurrencyManager.getCurrency(baseCurrency)
     val fxRates = when (fxState) {
         is FxState.Ready -> fxState.fx.rates
         else -> null
     }
     
-    // Convert subscriptions to base currency and calculate monthly amounts
+    // Convert ALL subscriptions to base currency - TÜM fiyatlar seçili para birimine çevrilir
     val convertedSubscriptions = remember(subscriptions, fxRates, baseCurrency) {
         subscriptions.mapNotNull { subscription ->
             val price = subscription.price.toDoubleOrNull() ?: return@mapNotNull null
@@ -91,18 +88,23 @@ fun StatsScreen(
         }
     }
     
-    // Calculate total
+    // Calculate total monthly spending
     val totalAmount = convertedSubscriptions.sumOf { it.second }
     val totalAmountAnimated by animateFloatAsState(
         targetValue = totalAmount.toFloat(),
-        animationSpec = tween(800, easing = FastOutSlowInEasing),
+        animationSpec = tween(1000, easing = FastOutSlowInEasing),
         label = "totalAmount"
     )
     
-    // Monthly data for chart (last 12 months or current year)
-    val monthlyData = remember(convertedSubscriptions, selectedPeriod) {
+    // Last 12 months data for trend chart
+    val monthlyData = remember(convertedSubscriptions) {
         val currentDate = Calendar.getInstance()
         val months = mutableMapOf<Int, Double>()
+        
+        // Son 12 ayı hesapla
+        (0..11).forEach { monthOffset ->
+            months[11 - monthOffset] = 0.0
+        }
         
         convertedSubscriptions.forEach { (subscription, amount) ->
             val renewalDate = try {
@@ -125,21 +127,11 @@ fun StatsScreen(
             
             if (renewalDate != null) {
                 val nextPayment = calculateNextPaymentDate(renewalDate, subscription.period, currentDate)
-                val monthIndex = if (selectedPeriod == StatsPeriod.MONTHLY) {
-                    // Last 12 months
-                    val monthsDiff = (currentDate.get(Calendar.YEAR) - nextPayment.get(Calendar.YEAR)) * 12 +
-                            (currentDate.get(Calendar.MONTH) - nextPayment.get(Calendar.MONTH))
-                    if (monthsDiff in 0..11) 11 - monthsDiff else -1
-                } else {
-                    // Current year months
-                    if (nextPayment.get(Calendar.YEAR) == currentDate.get(Calendar.YEAR)) {
-                        nextPayment.get(Calendar.MONTH)
-                    } else {
-                        -1
-                    }
-                }
+                val monthsDiff = (currentDate.get(Calendar.YEAR) - nextPayment.get(Calendar.YEAR)) * 12 +
+                        (currentDate.get(Calendar.MONTH) - nextPayment.get(Calendar.MONTH))
                 
-                if (monthIndex >= 0 && monthIndex < 12) {
+                if (monthsDiff in 0..11) {
+                    val monthIndex = 11 - monthsDiff
                     months[monthIndex] = (months[monthIndex] ?: 0.0) + amount
                 }
             }
@@ -148,7 +140,7 @@ fun StatsScreen(
         (0..11).map { months[it] ?: 0.0 }
     }
     
-    // Category data (using subscription name as category for now)
+    // Category data (grouped by subscription name)
     val categoryData = remember(convertedSubscriptions) {
         convertedSubscriptions.groupBy { it.first.name }
             .mapValues { (_, list) -> list.sumOf { it.second } }
@@ -157,9 +149,17 @@ fun StatsScreen(
             .take(5)
     }
     
+    val categoryTotal = categoryData.sumOf { it.second }
+    
     // Top 3 most expensive subscriptions
     val topExpensive = remember(convertedSubscriptions) {
         convertedSubscriptions.sortedByDescending { it.second }.take(3)
+    }
+    
+    // Screen entry animation
+    var screenVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        screenVisible = true
     }
     
     if (subscriptions.isEmpty()) {
@@ -169,165 +169,168 @@ fun StatsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Period Selector
+            // Premium Summary Card (Aylık/Yıllık toggle KALDIRILDI)
             item {
-                PeriodSelector(
-                    selectedPeriod = selectedPeriod,
-                    onPeriodSelected = { selectedPeriod = it }
-                )
-            }
-            
-            // Total Spending Card
-            item {
-                TotalSpendingCard(
-                    totalAmount = totalAmountAnimated.toDouble(),
-                    activeCount = subscriptions.size,
-                    baseCurrencyObj = baseCurrencyObj,
-                    period = selectedPeriod
-                )
-            }
-            
-            // Spending Trend Chart
-            item {
-                SpendingTrendChart(
-                    monthlyData = monthlyData,
-                    baseCurrencyObj = baseCurrencyObj,
-                    period = selectedPeriod
-                )
-            }
-            
-            // Category Distribution
-            if (categoryData.isNotEmpty()) {
-                item {
-                    CategoryDistributionCard(
-                        categoryData = categoryData,
-                        totalAmount = totalAmount,
+                AnimatedVisibility(
+                    visible = screenVisible,
+                    enter = fadeIn(animationSpec = tween(600)) + slideInVertically(
+                        initialOffsetY = { -it / 2 },
+                        animationSpec = tween(600, easing = FastOutSlowInEasing)
+                    )
+                ) {
+                    PremiumSummaryCard(
+                        totalAmount = totalAmountAnimated.toDouble(),
+                        activeCount = subscriptions.size,
                         baseCurrencyObj = baseCurrencyObj
                     )
+                }
+            }
+            
+            // Spending Trend Chart - Son 12 ay
+            item {
+                AnimatedVisibility(
+                    visible = screenVisible,
+                    enter = fadeIn(animationSpec = tween(600, delayMillis = 100)) + slideInVertically(
+                        initialOffsetY = { it / 4 },
+                        animationSpec = tween(600, delayMillis = 100, easing = FastOutSlowInEasing)
+                    )
+                ) {
+                    SpendingTrendChart(
+                        monthlyData = monthlyData,
+                        baseCurrencyObj = baseCurrencyObj
+                    )
+                }
+            }
+            
+            // Category Distribution - Geliştirilmiş Donut Chart
+            if (categoryData.isNotEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = screenVisible,
+                        enter = fadeIn(animationSpec = tween(600, delayMillis = 200)) + slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(600, delayMillis = 200, easing = FastOutSlowInEasing)
+                        )
+                    ) {
+                        CategoryDistributionCard(
+                            categoryData = categoryData,
+                            categoryTotal = categoryTotal,
+                            baseCurrencyObj = baseCurrencyObj
+                        )
+                    }
                 }
             }
             
             // Active Subscriptions Summary
             item {
-                ActiveSubscriptionsSummary(
-                    subscriptions = subscriptions.take(3),
-                    convertedSubscriptions = convertedSubscriptions.take(3),
-                    baseCurrencyObj = baseCurrencyObj
-                )
-            }
-            
-            // Top 3 Most Expensive
-            if (topExpensive.isNotEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.most_expensive_subscriptions),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 8.dp)
+                AnimatedVisibility(
+                    visible = screenVisible,
+                    enter = fadeIn(animationSpec = tween(600, delayMillis = 300)) + slideInVertically(
+                        initialOffsetY = { it / 4 },
+                        animationSpec = tween(600, delayMillis = 300, easing = FastOutSlowInEasing)
                     )
-                }
-                
-                items(topExpensive) { (subscription, amount) ->
-                    ExpensiveSubscriptionCard(
-                        subscription = subscription,
-                        monthlyAmount = amount,
+                ) {
+                    ActiveSubscriptionsSummary(
+                        subscriptions = subscriptions,
+                        convertedSubscriptions = convertedSubscriptions,
                         baseCurrencyObj = baseCurrencyObj
                     )
                 }
             }
+            
+            // Top 3 Most Expensive Subscriptions
+            if (topExpensive.isNotEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = screenVisible,
+                        enter = fadeIn(animationSpec = tween(600, delayMillis = 400)) + slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(600, delayMillis = 400, easing = FastOutSlowInEasing)
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.most_expensive_subscriptions),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
+                
+                items(topExpensive) { (subscription, amount) ->
+                    AnimatedVisibility(
+                        visible = screenVisible,
+                        enter = fadeIn(animationSpec = tween(600, delayMillis = 500)) + slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(600, delayMillis = 500, easing = FastOutSlowInEasing)
+                        )
+                    ) {
+                        ExpensiveSubscriptionCard(
+                            subscription = subscription,
+                            monthlyAmount = amount,
+                            baseCurrencyObj = baseCurrencyObj
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeriodSelector(
-    selectedPeriod: StatsPeriod,
-    onPeriodSelected: (StatsPeriod) -> Unit
-) {
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        SegmentedButton(
-            selected = selectedPeriod == StatsPeriod.MONTHLY,
-            onClick = { onPeriodSelected(StatsPeriod.MONTHLY) },
-            modifier = Modifier.weight(1f),
-            shape = MaterialTheme.shapes.small
-        ) {
-            Text(stringResource(R.string.monthly))
-        }
-        SegmentedButton(
-            selected = selectedPeriod == StatsPeriod.YEARLY,
-            onClick = { onPeriodSelected(StatsPeriod.YEARLY) },
-            modifier = Modifier.weight(1f),
-            shape = MaterialTheme.shapes.small
-        ) {
-            Text(stringResource(R.string.yearly))
-        }
-    }
-}
-
-@Composable
-fun TotalSpendingCard(
+fun PremiumSummaryCard(
     totalAmount: Double,
     activeCount: Int,
-    baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?,
-    period: StatsPeriod
+    baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary
+                        )
+                    )
+                )
+                .padding(32.dp)
         ) {
-            Text(
-                text = stringResource(R.string.total_spending),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            
-            Text(
-                text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", totalAmount)}",
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
+                    text = stringResource(R.string.total_spending),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Text(
+                    text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", totalAmount)}",
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                
+                Text(
                     text = "$activeCount ${stringResource(R.string.active_subscriptions).lowercase()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                )
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = if (period == StatsPeriod.MONTHLY) {
-                        stringResource(R.string.this_month)
-                    } else {
-                        stringResource(R.string.this_year)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
@@ -337,12 +340,11 @@ fun TotalSpendingCard(
 @Composable
 fun SpendingTrendChart(
     monthlyData: List<Double>,
-    baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?,
-    period: StatsPeriod
+    @Suppress("UNUSED_PARAMETER") baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -351,8 +353,8 @@ fun SpendingTrendChart(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -368,16 +370,17 @@ fun SpendingTrendChart(
                 Icon(
                     imageVector = Icons.Default.TrendingUp,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
                 )
             }
             
-            // Bar Chart
+            // Bar Chart - Son 12 ay
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .height(160.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 val maxAmount = monthlyData.maxOrNull() ?: 1.0
@@ -385,7 +388,7 @@ fun SpendingTrendChart(
                     val heightRatio = if (maxAmount > 0) amount / maxAmount else 0.0
                     val animatedHeight by animateFloatAsState(
                         targetValue = heightRatio.toFloat(),
-                        animationSpec = tween(600, easing = FastOutSlowInEasing),
+                        animationSpec = tween(800, delayMillis = index * 50, easing = FastOutSlowInEasing),
                         label = "barHeight_$index"
                     )
                     
@@ -400,25 +403,22 @@ fun SpendingTrendChart(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(animatedHeight)
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                 .background(
                                     Brush.verticalGradient(
                                         colors = listOf(
                                             MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                                         )
                                     )
                                 )
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = if (period == StatsPeriod.MONTHLY) {
-                                "${index + 1}"
-                            } else {
-                                getMonthAbbreviation(index)
-                            },
+                            text = getMonthAbbreviation(11 - index),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp
                         )
                     }
                 }
@@ -430,12 +430,14 @@ fun SpendingTrendChart(
 @Composable
 fun CategoryDistributionCard(
     categoryData: List<Pair<String, Double>>,
-    totalAmount: Double,
+    categoryTotal: Double,
     baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?
 ) {
+    var selectedCategoryIndex by remember { mutableStateOf<Int?>(null) }
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -444,8 +446,8 @@ fun CategoryDistributionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text(
                 text = stringResource(R.string.category_distribution),
@@ -454,12 +456,11 @@ fun CategoryDistributionCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
             
-            // Pie Chart
-            val categoryTotal = categoryData.sumOf { it.second }
+            // Donut Chart - Daha kalın stroke
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .height(220.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (categoryTotal > 0 && categoryData.isNotEmpty()) {
@@ -477,13 +478,17 @@ fun CategoryDistributionCard(
                         var currentAngle = -90f
                         categoryData.forEachIndexed { index, (_, amount) ->
                             val sweepAngle = (amount / categoryTotal * 360f).toFloat()
-                            val color = colors[index % colors.size]
+                            val color = if (selectedCategoryIndex == index) {
+                                colors[index % colors.size].copy(alpha = 0.8f)
+                            } else {
+                                colors[index % colors.size]
+                            }
                             drawArc(
                                 color = color,
                                 startAngle = currentAngle,
                                 sweepAngle = sweepAngle,
                                 useCenter = false,
-                                style = Stroke(width = 50.dp.toPx(), cap = StrokeCap.Round)
+                                style = Stroke(width = 60.dp.toPx(), cap = StrokeCap.Round)
                             )
                             currentAngle += sweepAngle
                         }
@@ -507,30 +512,56 @@ fun CategoryDistributionCard(
                 }
             }
             
-            // Category List
+            // Category List - Renk noktası, % oran, tutar
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                categoryData.forEach { (name, amount) ->
+                categoryData.forEachIndexed { index, (name, amount) ->
                     val percentage = if (categoryTotal > 0) (amount / categoryTotal * 100).toInt() else 0
+                    val colors = listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.secondary,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.secondaryContainer
+                    )
+                    val categoryColor = colors[index % colors.size]
+                    
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedCategoryIndex = if (selectedCategoryIndex == index) null else index
+                            }
+                            .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(categoryColor)
                             )
-                            Text(
-                                text = "$percentage%",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "$percentage%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         Text(
                             text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", amount)}",
@@ -555,7 +586,7 @@ fun ActiveSubscriptionsSummary(
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -564,16 +595,9 @@ fun ActiveSubscriptionsSummary(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Text(
-                text = stringResource(R.string.active_subscriptions),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -587,7 +611,7 @@ fun ActiveSubscriptionsSummary(
                     )
                     Text(
                         text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", totalMonthly)}/${stringResource(R.string.month)}",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -598,8 +622,23 @@ fun ActiveSubscriptionsSummary(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                subscriptions.take(3).forEach { subscription ->
-                    SubscriptionListItem(subscription = subscription, baseCurrencyObj = baseCurrencyObj)
+                subscriptions.forEach { subscription ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = { }),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        SubscriptionListItem(
+                            subscription = subscription,
+                            convertedSubscriptions = convertedSubscriptions,
+                            baseCurrencyObj = baseCurrencyObj
+                        )
+                    }
                 }
             }
         }
@@ -609,26 +648,25 @@ fun ActiveSubscriptionsSummary(
 @Composable
 fun SubscriptionListItem(
     subscription: Subscription,
+    convertedSubscriptions: List<Pair<Subscription, Double>>,
     baseCurrencyObj: com.example.subscriptiontracker.utils.Currency?
 ) {
     val context = LocalContext.current
-    val monthlyAmount = if (subscription.period == Period.YEARLY) {
-        (subscription.price.toDoubleOrNull() ?: 0.0) / 12.0
-    } else {
-        subscription.price.toDoubleOrNull() ?: 0.0
-    }
+    val monthlyAmount = convertedSubscriptions.find { it.first.id == subscription.id }?.second ?: 0.0
     
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Logo
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .size(56.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
         ) {
             val isDarkTheme = isSystemInDarkTheme()
@@ -636,7 +674,7 @@ fun SubscriptionListItem(
                 !subscription.emoji.isNullOrEmpty() -> {
                     Text(
                         text = subscription.emoji!!,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.displaySmall
                     )
                 }
                 subscription.logoResId != null -> {
@@ -668,7 +706,7 @@ fun SubscriptionListItem(
                 else -> {
                     Text(
                         text = subscription.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -716,87 +754,100 @@ fun ExpensiveSubscriptionCard(
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                        )
+                    )
+                )
+                .padding(20.dp)
         ) {
-            // Logo
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val isDarkTheme = isSystemInDarkTheme()
-                when {
-                    !subscription.emoji.isNullOrEmpty() -> {
-                        Text(
-                            text = subscription.emoji!!,
-                            style = MaterialTheme.typography.displaySmall
-                        )
-                    }
-                    subscription.logoResId != null -> {
-                        Image(
-                            painter = painterResource(id = subscription.logoResId),
-                            contentDescription = subscription.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                    !subscription.logoUrl.isNullOrEmpty() -> {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(subscription.logoUrl)
-                                .decoderFactory(SvgDecoder.Factory())
-                                .crossfade(true)
-                                .allowHardware(false)
-                                .build(),
-                            contentDescription = subscription.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                            colorFilter = if (isDarkTheme) {
-                                ColorFilter.tint(Color.White)
-                            } else {
-                                null
-                            }
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = subscription.name.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                // Logo
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val isDarkTheme = isSystemInDarkTheme()
+                    when {
+                        !subscription.emoji.isNullOrEmpty() -> {
+                            Text(
+                                text = subscription.emoji!!,
+                                style = MaterialTheme.typography.displayMedium
+                            )
+                        }
+                        subscription.logoResId != null -> {
+                            Image(
+                                painter = painterResource(id = subscription.logoResId),
+                                contentDescription = subscription.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        !subscription.logoUrl.isNullOrEmpty() -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(subscription.logoUrl)
+                                    .decoderFactory(SvgDecoder.Factory())
+                                    .crossfade(true)
+                                    .allowHardware(false)
+                                    .build(),
+                                contentDescription = subscription.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                colorFilter = if (isDarkTheme) {
+                                    ColorFilter.tint(Color.White)
+                                } else {
+                                    null
+                                }
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = subscription.name.take(1).uppercase(),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
-            }
-            
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = subscription.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", monthlyAmount)}/${if (subscription.period == Period.MONTHLY) stringResource(R.string.month) else stringResource(R.string.year)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = subscription.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${baseCurrencyObj?.symbol ?: "₺"}${String.format(Locale.getDefault(), "%.2f", monthlyAmount)}/${if (subscription.period == Period.MONTHLY) stringResource(R.string.month) else stringResource(R.string.year)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -851,8 +902,10 @@ private fun calculateNextPaymentDate(
     return nextPayment
 }
 
-private fun getMonthAbbreviation(monthIndex: Int): String {
+private fun getMonthAbbreviation(monthOffset: Int): String {
+    val calendar = Calendar.getInstance()
+    calendar.add(Calendar.MONTH, -monthOffset)
+    val month = calendar.get(Calendar.MONTH)
     val months = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    return if (monthIndex in 0..11) months[monthIndex] else ""
+    return if (month in 0..11) months[month] else ""
 }
-
