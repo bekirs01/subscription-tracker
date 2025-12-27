@@ -47,6 +47,7 @@ import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.LocaleManager
 import com.example.subscriptiontracker.utils.PeriodManager
 import com.example.subscriptiontracker.utils.PremiumManager
+import com.example.subscriptiontracker.utils.SubscriptionReminderManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale

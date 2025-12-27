@@ -69,6 +69,17 @@ fun NavGraph(
     // Selected service state for navigation
     var selectedService by remember { mutableStateOf<ServiceItem?>(null) }
     
+    // Reschedule all reminders when subscriptions list changes (e.g., after boot or settings change)
+    LaunchedEffect(subscriptions) {
+        if (subscriptions.isNotEmpty()) {
+            try {
+                SubscriptionReminderManager.rescheduleAllReminders(context, subscriptions)
+            } catch (e: Exception) {
+                // Ignore errors
+            }
+        }
+    }
+    
     // Get current route for bottom bar selection
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
@@ -163,9 +174,13 @@ fun NavGraph(
                     val newSubscription = subscription.copy(id = nextId)
                     subscriptions = subscriptions + newSubscription
                     nextId++
-                    // Schedule reminders for subscription added from chat
+                    // Schedule reminders for subscription added from chat (will use saved settings)
                     scope.launch {
-                        SubscriptionReminderManager.scheduleReminders(context, newSubscription)
+                        try {
+                            SubscriptionReminderManager.scheduleReminders(context, newSubscription)
+                        } catch (e: Exception) {
+                            // Ignore errors
+                        }
                     }
                 },
                 onThemeChanged = onThemeChanged,
@@ -202,9 +217,13 @@ fun NavGraph(
                     subscriptions = subscriptions + newSubscription
                     nextId++
                     selectedService = null
-                    // Schedule reminders for new subscription
+                    // Schedule reminders for new subscription (will use saved settings)
                     scope.launch {
-                        SubscriptionReminderManager.scheduleReminders(context, newSubscription)
+                        try {
+                            SubscriptionReminderManager.scheduleReminders(context, newSubscription)
+                        } catch (e: Exception) {
+                            // Ignore errors
+                        }
                     }
                     // Navigate directly to Home
                     navController.navigate(Screen.Home.route) {
@@ -237,9 +256,13 @@ fun NavGraph(
                             it
                         }
                     }
-                    // Update reminders for edited subscription
+                    // Update reminders for edited subscription (will use saved settings)
                     scope.launch {
-                        SubscriptionReminderManager.updateReminders(context, finalSubscription)
+                        try {
+                            SubscriptionReminderManager.updateReminders(context, finalSubscription)
+                        } catch (e: Exception) {
+                            // Ignore errors
+                        }
                     }
                     // Navigate back to Home
                     navController.navigate(Screen.Home.route) {

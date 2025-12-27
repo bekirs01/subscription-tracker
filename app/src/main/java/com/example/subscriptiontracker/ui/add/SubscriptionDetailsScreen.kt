@@ -43,6 +43,8 @@ import com.example.subscriptiontracker.Period
 import com.example.subscriptiontracker.utils.CurrencyManager
 import com.example.subscriptiontracker.utils.PeriodManager
 import com.example.subscriptiontracker.utils.PremiumManager
+import com.example.subscriptiontracker.utils.ReminderSettingsManager
+import com.example.subscriptiontracker.utils.SubscriptionReminderManager
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
@@ -342,20 +344,58 @@ fun SubscriptionDetailsScreen(
                                         if (selectedPeriod == Period.MONTHLY) "MONTHLY" else "YEARLY"
                                     )
                                 }
-                                onSave(
-                                    Subscription(
-                                        id = existingSubscription?.id ?: 0,
-                                        name = name.trim(),
-                                        price = price,
-                                        period = selectedPeriod,
-                                        renewalDate = startDate,
-                                        logoUrl = existingSubscription?.logoUrl ?: predefinedService?.logoUrlLight,
-                                        logoResId = selectedLogoResId,
-                                        emoji = selectedEmoji,
-                                        currency = selectedCurrencyCode,
-                                        notes = notes.trim()
-                                    )
+                                val subscription = Subscription(
+                                    id = existingSubscription?.id ?: 0,
+                                    name = name.trim(),
+                                    price = price,
+                                    period = selectedPeriod,
+                                    renewalDate = startDate,
+                                    logoUrl = existingSubscription?.logoUrl ?: predefinedService?.logoUrlLight,
+                                    logoResId = selectedLogoResId,
+                                    emoji = selectedEmoji,
+                                    currency = selectedCurrencyCode,
+                                    notes = notes.trim()
                                 )
+                                
+                                // Save reminder settings and schedule alarms
+                                if (isReminderEnabled && selectedReminderDays.isNotEmpty()) {
+                                    scope.launch {
+                                        try {
+                                            // Save reminder settings
+                                            ReminderSettingsManager.saveReminderSettings(
+                                                context,
+                                                selectedReminderDays,
+                                                reminderHour,
+                                                reminderMinute
+                                            )
+                                            
+                                            // Schedule alarms for this subscription
+                                            val reminderSettings = com.example.subscriptiontracker.utils.ReminderSettings(
+                                                days = selectedReminderDays,
+                                                hour = reminderHour,
+                                                minute = reminderMinute
+                                            )
+                                            SubscriptionReminderManager.updateReminders(
+                                                context,
+                                                subscription,
+                                                reminderSettings
+                                            )
+                                        } catch (e: Exception) {
+                                            // Ignore errors to prevent crashes
+                                        }
+                                    }
+                                } else {
+                                    // Cancel reminders if disabled
+                                    scope.launch {
+                                        try {
+                                            SubscriptionReminderManager.cancelReminders(context, subscription.id)
+                                        } catch (e: Exception) {
+                                            // Ignore errors
+                                        }
+                                    }
+                                }
+                                
+                                onSave(subscription)
                             }
                         },
                         enabled = isSaveButtonEnabled, // Edit mode: always true, Add mode: isFormValid
