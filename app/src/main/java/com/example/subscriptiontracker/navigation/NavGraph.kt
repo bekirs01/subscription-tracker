@@ -25,7 +25,7 @@ import com.example.subscriptiontracker.R
 import com.example.subscriptiontracker.Subscription
 import com.example.subscriptiontracker.ui.chat.ChatScreen
 import com.example.subscriptiontracker.ui.home.HomeScreen
-import com.example.subscriptiontracker.ui.home.BudgetStatsScreen
+import com.example.subscriptiontracker.ui.stats.StatsScreen
 import com.example.subscriptiontracker.ui.premium.PremiumScreen
 import com.example.subscriptiontracker.ui.premium.PremiumScreenMode
 import com.example.subscriptiontracker.ui.settings.SettingsScreen
@@ -118,7 +118,7 @@ fun NavGraph(
             }
             val fxState by fxStateFlow.collectAsState()
             
-            BudgetStatsScreen(
+            StatsScreen(
                 subscriptions = subscriptions,
                 baseCurrency = currentCurrency,
                 fxState = fxState,

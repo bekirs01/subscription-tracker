@@ -141,4 +141,19 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="cancelled_anything_else">OK, cancelled. Would you like me to do something else?</string>
+    
+    <!-- Stats Screen -->
+    <string name="total_spending">Total Spending</string>
+    <string name="this_month">This month</string>
+    <string name="this_year">This year</string>
+    <string name="spending_trend">Spending Trend</string>
+    <string name="category_distribution">Category Distribution</string>
+    <string name="most_expensive_subscriptions">Most Expensive Subscriptions</string>
+    <string name="subscriptions">subscriptions</string>
+    <string name="month">month</string>
+    <string name="year">year</string>
+    <string name="no_subscriptions_yet">No subscriptions yet</string>
+    <string name="add_first_subscription_to_start">Add your first subscription to start tracking</string>
+    <string name="active_subscriptions">Active Subscriptions</string>
+    <string name="total">Total</string>
 </resources>
